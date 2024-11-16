@@ -2,7 +2,7 @@ const { pick, map, has } = require("lodash")
 const { hex, toSignedInt32, getAllFiles, camelToTitle, printObject } = require("./utils")
 
 const END_REQ = 1100
-let TARGET_REQ = -1
+let TARGET_REQ = 0
 let MOVESET = {}
 let MOVE_ID = -1
 let PARAMETERS = {}
@@ -24,9 +24,6 @@ function processProp(prop, propIndex, results, key) {
 function processMoveProps(propIdx, propsArr, results, key) {
   const startIdx = propIdx;
   if (startIdx === -1) return; // No properties for this move
-  const moveset = MOVESET;
-  const moveId = MOVE_ID;
-
   let currentIdx = startIdx;
 
   while (processProp(propsArr[currentIdx], currentIdx, results, key)) {
@@ -158,12 +155,6 @@ function logResults(propType, results) {
 }
 
 function main() {
-  getAllFiles().forEach(path => {
-    const moveset = require(`./${path}`)
-    console.log(moveset.tekken_character_name, "-", moveset.character_id, !!moveset._0x298)
-  })
-  return
-  ////////////
   const args = process.argv.slice(2);
 
   args.forEach(arg => {
@@ -186,8 +177,8 @@ function main() {
   }
 
   getAllFiles().forEach((path, i) => {
-    const moveset = require(`./${path}`)
-    if (moveset.tekken_character_name !== '[HEIHACHI]') return;
+    const moveset = require(`${path}`)
+    // if (moveset.tekken_character_name !== '[HEIHACHI]') return;
     if (LOG) {
       console.log(moveset.tekken_character_name, "-", moveset.character_id)
     }
