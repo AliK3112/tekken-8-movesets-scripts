@@ -42,8 +42,10 @@ const getMainStoryFightId = (battleId) => {
 }
 
 const getDlcStoryFightId = (battleId) => {
+  if (battleId === 0x804) return '8-3';
   const highByte = (battleId & 0xFF00) >> 8;
-  const lowByte = battleId & 0x00FF;
+  let lowByte = battleId & 0x00FF;
+  lowByte = lowByte - Math.floor(lowByte / 2);
   return `${highByte}-${lowByte}`;
 }
 
@@ -99,9 +101,7 @@ function listDialogues() {
 }
 
 function main() {
-  const files = getAllFiles()
-  // print(sortByGameId(files))
-  sortByGameId(files).forEach(path => {
+  sortByGameId(getAllFiles()).forEach(path => {
     const moveset = require(`${path}`)
     if (LOG) {
       print(moveset.tekken_character_name, "-", moveset.character_id)
