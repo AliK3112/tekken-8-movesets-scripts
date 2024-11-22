@@ -1,12 +1,12 @@
 const { readdirSync, statSync } = require("fs");
-const $ = require('lodash');
+const _ = require('lodash');
 const { join } = require("path");
 
 // const PATH = "./extracted_chars_1_09"
 const PATH = "C:/Users/alikh/Documents/Python/TekkenMovesetExtractor/extracted_chars"
 
 function hex(number, length = 8) {
-  return "0x" + parseInt(number).toString(16).padStart(length, "0")
+  return "0x" + parseInt(number).toString(16).padStart(length, "0").toUpperCase()
 }
 
 function toSignedInt32(unsignedInt) {
@@ -126,7 +126,7 @@ const CHARACTER_NAMES = {
 }
 
 function camelToTitle(str) {
-  return $.startCase($.camelCase(str));
+  return _.startCase(_.camelCase(str));
 }
 
 module.exports = {

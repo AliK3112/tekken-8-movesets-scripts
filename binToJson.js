@@ -561,16 +561,15 @@ function parseBinaryFile(filePath) {
 
 function main() {
   const result = parseBinaryFile("./extracted_chars_v1_09_bin/t8_ALISA.bin");
-  ////////////////////////////////////////////
 
-  fs.writeFileSync(
-    "./test.json",
-    JSON.stringify(result, (_, value) =>
-      typeof value === "bigint" ? Number(value) : value
+  if (result) {
+    fs.writeFileSync(
+      "./test.json",
+      JSON.stringify(result, (_, value) =>
+        typeof value === "bigint" ? Number(value) : value
+      )
     )
-  )
-  // console.log(Object.keys(result));
-  // console.log(result.voiceclips);
+  }
 }
 
 main();
