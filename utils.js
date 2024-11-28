@@ -57,7 +57,7 @@ function printObject(object) {
  * Extracts the characters name from the file
  * @param {string} filepath 
  */
-const fn = (filepath) => $.last(filepath.split(/[\/\\]+/)).slice(3).split('.')[0]
+const fn = (filepath) => _.last(filepath.split(/[\/\\]+/)).slice(3).split('.')[0]
 
 function sortByGameId(array) {
   const obj = {}

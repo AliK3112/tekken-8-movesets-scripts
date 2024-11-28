@@ -111,7 +111,8 @@ struct MoveData
   uint32_t startup;                                   // offset 0x158
   uint32_t recovery;                                  // offset 0x15C
 
-  tk_move_hitbox hitboxes[8]; // offset 0x160 - 0x2E0
+  tk_move_hitbox hitboxes[8]; // offset 0x160 - 0x2DC
+  uint32_t _0x2E0; // offset 0x2E0
   tk_move_unknown _0x2E4[8];  // offset 0x2E4 - 0x440
 
   uint32_t _0x444; // offset 0x444

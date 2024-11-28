@@ -178,7 +178,7 @@ function main() {
 
   getAllFiles().forEach((path, i) => {
     const moveset = require(`${path}`)
-    // if (moveset.tekken_character_name !== '[HEIHACHI]') return;
+    // if (moveset.character_id !== 8) return;
     if (LOG) {
       console.log(moveset.tekken_character_name, "-", moveset.character_id)
     }

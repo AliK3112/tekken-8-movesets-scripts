@@ -110,14 +110,14 @@ function processInputs() {
   MOVESET.input_sequences.forEach((sequence, i) => {
     const inputs = getInputs(sequence.extradata_idx, sequence.u2)
     if (LOG) {
-      console.log(`Sequence # ${i} : ${inputs.join(" > ")}`)
+      console.log(`Sequence # ${i} (${hex(i + 0x800f, 4)}) : ${inputs.join(" > ")}`)
     }
   })
 }
 
 function main() {
   sortByGameId(getAllFiles()).forEach(path => {
-    const moveset = require("./" + path)
+    const moveset = require(path)
     // if (moveset.character_id !== 6) return
     if (LOG) {
       console.log(moveset.tekken_character_name, "-", moveset.character_id)
