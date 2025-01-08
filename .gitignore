@@ -1,3 +1,4 @@
 *extracted_chars*
 node_modules
 *.txt
+.vscode
