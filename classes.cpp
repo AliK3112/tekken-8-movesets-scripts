@@ -30,6 +30,52 @@ struct tk_pushback
   tk_pushback_extradata *pushback_extradata;
 };
 
+struct tk_reaction
+{
+  // Array
+  tk_pushback *front_pushback;
+  tk_pushback *backturned_pushback;
+  tk_pushback *left_side_pushback;
+  tk_pushback *right_side_pushback;
+  tk_pushback *front_counterhit_pushback; // If you ever wondered why your CH launcher didn't launch after a sidestep, that's why
+  tk_pushback *downed_pushback;
+  tk_pushback *block_pushback;
+
+  // Directions
+  uint16_t front_direction;            // Offset: 0x38
+  uint16_t back_direction;             // Offset: 0x3a
+  uint16_t left_side_direction;        // Offset: 0x3c
+  uint16_t right_side_direction;       // Offset: 0x3e
+  uint16_t front_counterhit_direction; // Offset: 0x40
+  uint16_t downed_direction;           // Offset: 0x42
+
+  // Rotations
+  uint16_t front_rotation;      // Offset: 0x44
+  uint16_t back_rotation;       // Offset: 0x46
+  uint16_t left_side_rotation;  // Offset: 0x48
+  uint16_t right_side_rotation; // Offset: 0x4a
+  uint16_t vertical_pushback;   // Offset: 0x4c (a.k.a front_counterhit_rotation)
+  uint16_t downed_rotation;     // Offset: 0x4e
+
+  // Move IDs
+  uint16_t standing;          // Offset: 0x50
+  uint16_t crouch;            // Offset: 0x52
+  uint16_t ch;                // Offset: 0x54
+  uint16_t crouch_ch;         // Offset: 0x56
+  uint16_t left_side;         // Offset: 0x58
+  uint16_t left_side_crouch;  // Offset: 0x5a
+  uint16_t right_side;        // Offset: 0x5c
+  uint16_t right_side_crouch; // Offset: 0x5e
+  uint16_t back;              // Offset: 0x60
+  uint16_t back_crouch;       // Offset: 0x62
+  uint16_t block;             // Offset: 0x64
+  uint16_t crouch_block;      // Offset: 0x66
+  uint16_t wallslump;         // Offset: 0x68
+  uint16_t downed;            // Offset: 0x6a
+  uint16_t unk1;              // Offset: 0x6c
+  uint16_t unk2;              // Offset: 0x6e
+};
+
 struct tk_cancel_extradata
 {
   uint32_t value;
@@ -169,51 +215,6 @@ struct tk_projectile
   uint32_t u2[14];                     // Offset: 0xa0
 };
 
-struct tk_reaction
-{
-  // Array
-  tk_pushback *front_pushback;
-  tk_pushback *backturned_pushback;
-  tk_pushback *left_side_pushback;
-  tk_pushback *right_side_pushback;
-  tk_pushback *front_counterhit_pushback; // If you ever wondered why your CH launcher didn't launch after a sidestep, that's why
-  tk_pushback *downed_pushback;
-  tk_pushback *block_pushback;
-
-  // Directions
-  uint16_t front_direction;            // Offset: 0x38
-  uint16_t back_direction;             // Offset: 0x3a
-  uint16_t left_side_direction;        // Offset: 0x3c
-  uint16_t right_side_direction;       // Offset: 0x3e
-  uint16_t front_counterhit_direction; // Offset: 0x40
-  uint16_t downed_direction;           // Offset: 0x42
-
-  // Rotations
-  uint16_t front_rotation;      // Offset: 0x44
-  uint16_t back_rotation;       // Offset: 0x46
-  uint16_t left_side_rotation;  // Offset: 0x48
-  uint16_t right_side_rotation; // Offset: 0x4a
-  uint16_t vertical_pushback;   // Offset: 0x4c (a.k.a front_counterhit_rotation)
-  uint16_t downed_rotation;     // Offset: 0x4e
-
-  // Move IDs
-  uint16_t standing;          // Offset: 0x50
-  uint16_t crouch;            // Offset: 0x52
-  uint16_t ch;                // Offset: 0x54
-  uint16_t crouch_ch;         // Offset: 0x56
-  uint16_t left_side;         // Offset: 0x58
-  uint16_t left_side_crouch;  // Offset: 0x5a
-  uint16_t right_side;        // Offset: 0x5c
-  uint16_t right_side_crouch; // Offset: 0x5e
-  uint16_t back;              // Offset: 0x60
-  uint16_t back_crouch;       // Offset: 0x62
-  uint16_t block;             // Offset: 0x64
-  uint16_t crouch_block;      // Offset: 0x66
-  uint16_t wallslump;         // Offset: 0x68
-  uint16_t downed;            // Offset: 0x6a
-  uint16_t unk1;              // Offset: 0x6c
-  uint16_t unk2;              // Offset: 0x6e
-};
 
 struct tk_input
 {
@@ -269,7 +270,7 @@ struct tk_moveset
   bool is_written;
   bool _0x3;
   uint32_t _0x4;
-  char *_0x8; // "TEK"
+  char _0x8[4]; // "TEK"
   uint32_t _0xC;
   uint64_t character_name_addr;    // no longer used
   uint64_t character_creator_addr; // no longer used
@@ -277,7 +278,7 @@ struct tk_moveset
   uint64_t fulldate_addr;          // no longer used
   uint16_t original_aliases[60];
   uint16_t current_aliases[60];
-  uint16_t unknown_aliases[36];
+  uint16_t unknown_aliases[32];
   uint32_t ordinal_id1;                          // Concatenation of previous Character ID, for Kazuya (8) -> (-7 & 7)
   uint32_t ordinal_id2;                          // Concatenation of Character ID, for Kazuya (8) -> (-8 & 8)
   tk_reaction *reactions_ptr;                    // Offset: 0x168
