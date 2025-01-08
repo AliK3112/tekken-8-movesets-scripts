@@ -2,13 +2,33 @@ typedef unsigned long long uint64_t;
 typedef unsigned int uint32_t;
 typedef int int32_t;
 typedef unsigned short uint16_t;
+typedef short int16_t;
 
-typedef uint64_t tk_reaction;
-typedef uint64_t tk_requirement;
-typedef uint64_t tk_hit_condition;
-typedef uint64_t tk_voiceclip;
-typedef uint64_t tk_extraprops;
-typedef uint64_t tk_move_start_end_props;
+union tk_param
+{
+  uint32_t param_unsigned;
+  int32_t param_signed;
+  float param_float;
+};
+
+struct tk_requirement
+{
+  uint32_t req;
+  tk_param params[4];
+};
+
+struct tk_pushback_extradata
+{
+  int16_t displacement;
+};
+
+struct tk_pushback
+{
+  uint16_t non_linear_displacement;
+  uint16_t non_linear_distance;
+  uint32_t num_of_extra_pushbacks;
+  tk_pushback_extradata *pushback_extradata;
+};
 
 struct tk_cancel_extradata
 {
@@ -18,8 +38,8 @@ struct tk_cancel_extradata
 struct tk_cancel
 {
   uint64_t command;
-  tk_requirement* requirements;
-  tk_cancel_extradata* extradata;
+  tk_requirement *requirements;
+  tk_cancel_extradata *extradata;
   uint32_t input_window_start;
   uint32_t input_window_end;
   uint32_t starting_frame;
@@ -29,10 +49,33 @@ struct tk_cancel
 
 struct tk_hit_condition
 {
-  tk_requirement* requirements;
+  tk_requirement *requirements;
   uint32_t damage;
   uint32_t _0xC;
-  tk_reaction* reaction;
+  tk_reaction *reaction;
+};
+
+struct tk_extraprops
+{
+  uint32_t frame;
+  uint32_t _0x4;
+  uint32_t property;
+  tk_requirement *requirements;
+  tk_param params[5];
+};
+
+struct tk_move_start_end_props
+{
+  tk_requirement *requirements;
+  uint32_t property; // 1100 is the end of list
+  tk_param params[5];
+};
+
+struct tk_voiceclip
+{
+  int folder; // folder of voice
+  int val2;
+  int clip; // ID of the clip
 };
 
 struct tk_encrypted
@@ -58,7 +101,7 @@ struct tk_move_unknown
   uint32_t _0x24; // offset 0x24
 }; // offset 0x2E4
 
-struct MoveData
+struct tk_move
 {
   tk_encrypted name_key;        // offset 0x0
   uint32_t name_key_related[4]; // offset 0x10
@@ -66,8 +109,8 @@ struct MoveData
   tk_encrypted anim_name_key;        // offset 0x20
   uint32_t anim_name_key_related[4]; // offset 0x30
 
-  uint32_t *name_addr;      // offset 0x40
-  uint32_t *anim_name_addr; // offset 0x48
+  uint32_t *name_addr;      // offset 0x40 - no longer used
+  uint32_t *anim_name_addr; // offset 0x48 - no longer used
   uint32_t anim_key1;       // offset 0x50
   uint32_t anim_key2;       // offset 0x54
 
@@ -89,11 +132,11 @@ struct MoveData
   uint16_t transition;      // offset 0xCC
   uint16_t _0xCE;           // offset 0xCE
 
-  tk_encrypted _0xD0;        // offset 0xD0
-  uint32_t _0xD0_related[4]; // offset 0xE0
+  tk_encrypted ordinal_id1;        // offset 0xD0
+  uint32_t ordinal_id1_related[4]; // offset 0xE0
 
-  tk_encrypted ordinal_id;        // offset 0xF0
-  uint32_t ordinal_id_related[4]; // offset 0x100
+  tk_encrypted ordinal_id2;        // offset 0xF0
+  uint32_t ordinal_id2_related[4]; // offset 0x100
 
   tk_hit_condition *hit_condition_ptr;                // offset 0x110
   uint32_t _0x118;                                    // offset 0x118
@@ -111,9 +154,171 @@ struct MoveData
   uint32_t startup;                                   // offset 0x158
   uint32_t recovery;                                  // offset 0x15C
 
-  tk_move_hitbox hitboxes[8]; // offset 0x160 - 0x2DC
-  uint32_t _0x2E0; // offset 0x2E0
+  tk_move_hitbox hitboxes[8]; // offset 0x160 - 0x2E0
+  uint32_t _0x2E0;            // offset 0x2E0
   tk_move_unknown _0x2E4[8];  // offset 0x2E4 - 0x440
 
   uint32_t _0x444; // offset 0x444
+};
+
+struct tk_projectile
+{
+  uint32_t u1[35];                     // Offset: 0x0
+  tk_hit_condition *hit_condition_idx; // Offset: 0x90
+  tk_cancel *cancel_idx;               // Offset: 0x98
+  uint32_t u2[14];                     // Offset: 0xa0
+};
+
+struct tk_reaction
+{
+  // Array
+  tk_pushback *front_pushback;
+  tk_pushback *backturned_pushback;
+  tk_pushback *left_side_pushback;
+  tk_pushback *right_side_pushback;
+  tk_pushback *front_counterhit_pushback; // If you ever wondered why your CH launcher didn't launch after a sidestep, that's why
+  tk_pushback *downed_pushback;
+  tk_pushback *block_pushback;
+
+  // Directions
+  uint16_t front_direction;            // Offset: 0x38
+  uint16_t back_direction;             // Offset: 0x3a
+  uint16_t left_side_direction;        // Offset: 0x3c
+  uint16_t right_side_direction;       // Offset: 0x3e
+  uint16_t front_counterhit_direction; // Offset: 0x40
+  uint16_t downed_direction;           // Offset: 0x42
+
+  // Rotations
+  uint16_t front_rotation;      // Offset: 0x44
+  uint16_t back_rotation;       // Offset: 0x46
+  uint16_t left_side_rotation;  // Offset: 0x48
+  uint16_t right_side_rotation; // Offset: 0x4a
+  uint16_t vertical_pushback;   // Offset: 0x4c (a.k.a front_counterhit_rotation)
+  uint16_t downed_rotation;     // Offset: 0x4e
+
+  // Move IDs
+  uint16_t standing;          // Offset: 0x50
+  uint16_t crouch;            // Offset: 0x52
+  uint16_t ch;                // Offset: 0x54
+  uint16_t crouch_ch;         // Offset: 0x56
+  uint16_t left_side;         // Offset: 0x58
+  uint16_t left_side_crouch;  // Offset: 0x5a
+  uint16_t right_side;        // Offset: 0x5c
+  uint16_t right_side_crouch; // Offset: 0x5e
+  uint16_t back;              // Offset: 0x60
+  uint16_t back_crouch;       // Offset: 0x62
+  uint16_t block;             // Offset: 0x64
+  uint16_t crouch_block;      // Offset: 0x66
+  uint16_t wallslump;         // Offset: 0x68
+  uint16_t downed;            // Offset: 0x6a
+  uint16_t unk1;              // Offset: 0x6c
+  uint16_t unk2;              // Offset: 0x6e
+};
+
+struct tk_input
+{
+  union
+  {
+    uint64_t command;
+    struct
+    {
+      uint32_t direction;
+      uint32_t button;
+    };
+  };
+};
+
+struct tk_input_sequence
+{
+  uint16_t input_window_frames;
+  uint16_t input_amount;
+  uint32_t _0x4;
+  tk_input *inputs;
+};
+
+struct tk_parryable_move
+{
+  uint32_t value;
+};
+
+struct tk_throw_extra
+{
+  uint32_t u1;
+  uint16_t u2[4];
+};
+
+struct tk_throw
+{
+  uint64_t u1;
+  tk_throw_extra *throwextra;
+};
+
+struct tk_dialogue
+{
+  uint16_t type;
+  uint16_t id;
+  uint32_t _0x4;
+  tk_requirement *requirements;
+  uint32_t voiceclip_key;
+  uint32_t facial_anim_idx;
+};
+
+struct tk_moveset
+{
+  uint16_t _0x0;
+  bool is_written;
+  bool _0x3;
+  uint32_t _0x4;
+  char *_0x8; // "TEK"
+  uint32_t _0xC;
+  uint64_t character_name_addr;    // no longer used
+  uint64_t character_creator_addr; // no longer used
+  uint64_t date_addr;              // no longer used
+  uint64_t fulldate_addr;          // no longer used
+  uint16_t original_aliases[60];
+  uint16_t current_aliases[60];
+  uint16_t unknown_aliases[36];
+  uint32_t ordinal_id1;                          // Concatenation of previous Character ID, for Kazuya (8) -> (-7 & 7)
+  uint32_t ordinal_id2;                          // Concatenation of Character ID, for Kazuya (8) -> (-8 & 8)
+  tk_reaction *reactions_ptr;                    // Offset: 0x168
+  uint64_t _0x170;                               // No clue why it's here but it's here
+  uint64_t reactions_count;                      // Offset: 0x178
+  tk_requirement *requirements_ptr;              // Offset: 0x180
+  uint64_t requirements_count;                   // Offset: 0x188
+  tk_hit_condition *hit_conditions_ptr;          // Offset: 0x190
+  uint64_t hit_conditions_count;                 // Offset: 0x198
+  tk_projectile *projectiles_ptr;                // Offset: 0x1a0
+  uint64_t projectiles_count;                    // Offset: 0x1a8
+  tk_pushback *pushbacks_ptr;                    // Offset: 0x1b0
+  uint64_t pushbacks_count;                      // Offset: 0x1b8
+  tk_pushback_extradata *pushback_extradata_ptr; // Offset: 0x1c0
+  uint64_t pushback_extradata_count;             // Offset: 0x1c8
+  tk_cancel *cancels_ptr;                        // Offset: 0x1d0
+  uint64_t cancels_count;                        // Offset: 0x1d8
+  tk_cancel *group_cancels_ptr;                  // Offset: 0x1e0
+  uint64_t group_cancels_count;                  // Offset: 0x1e8
+  tk_cancel_extradata *cancel_extradata_ptr;     // Offset: 0x1f0
+  uint64_t cancel_extradata_count;               // Offset: 0x1f8
+  tk_extraprops *extra_move_properties_ptr;      // Offset: 0x200
+  uint64_t extra_move_properties_count;          // Offset: 0x208
+  tk_move_start_end_props *move_start_props_ptr; // Offset: 0x210
+  uint64_t move_start_props_count;               // Offset: 0x218
+  tk_move_start_end_props *move_end_props_ptr;   // Offset: 0x220
+  uint64_t move_end_props_count;                 // Offset: 0x228
+  tk_move *moves_ptr;                            // Offset: 0x230
+  uint64_t moves_count;                          // Offset: 0x238
+  tk_voiceclip *voiceclips_ptr;                  // Offset: 0x240
+  uint64_t voiceclips_count;                     // Offset: 0x248
+  tk_input_sequence *input_sequences_ptr;        // Offset: 0x250
+  uint64_t input_sequences_count;                // Offset: 0x258
+  tk_input *inputs_ptr;                          // Offset: 0x260
+  uint64_t inputs_count;                         // Offset: 0x268
+  tk_parryable_move *parryable_list_ptr;         // Offset: 0x270
+  uint64_t parryable_list_count;                 // Offset: 0x278
+  tk_throw_extra *throw_extras_ptr;              // Offset: 0x280
+  uint64_t throw_extras_count;                   // Offset: 0x288
+  tk_throw *throws_ptr;                          // Offset: 0x290
+  uint64_t throws_count;                         // Offset: 0x298
+  tk_dialogue *dialogues_ptr;                    // Offset: 0x2a0
+  uint64_t dialogues_count;                      // Offset: 0x2a8
 };
