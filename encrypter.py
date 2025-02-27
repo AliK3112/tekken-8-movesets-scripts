@@ -31,11 +31,11 @@ def encrypt_original_value(original_value: int) -> int:
     return (masked_value + (checksum << 28)) & 0xFFFFFFFF
 
 def validate_input(value: str) -> int:
-    match = re.fullmatch(r'0x[0-9A-Fa-f]+|[0-9A-Fa-f]+', value)
+    match = re.fullmatch(r'0x[0-9A-Fa-f]+|\d+', value)
     if not match:
         raise ValueError("Invalid input format. Enter a 32-bit integer in decimal or hex format.")
     
-    num = int(value, 16)
+    num = int(value, 16 if value.lower().startswith("0x") else 10)
     if num > 0xFFFFFFFF:
         raise ValueError("Value exceeds 32-bit integer range.")
     
