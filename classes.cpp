@@ -105,8 +105,8 @@ struct tk_extraprops
 {
   uint32_t frame;
   uint32_t _0x4;
-  uint32_t property;
   tk_requirement *requirements;
+  uint32_t property;
   tk_param params[5];
 };
 
@@ -212,7 +212,7 @@ struct tk_projectile
   uint32_t u1[35];                     // Offset: 0x0
   tk_hit_condition *hit_condition_idx; // Offset: 0x90
   tk_cancel *cancel_idx;               // Offset: 0x98
-  uint32_t u2[14];                     // Offset: 0xa0
+  uint32_t u2[16];                     // Offset: 0xa0
 };
 
 
