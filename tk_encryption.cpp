@@ -315,7 +315,7 @@ uint64_t TK__pack56BitWith8BitChecksum(uint64_t input)
 
 uint32_t TK__encrypt20BitWith12BitChecksum(uint32_t original_value)
 {
-  const uint64_t fixedKey = 0xEDCCFB96DCA40FBAull;
+  const uint64_t fixedKey = 0xEDCCFB96DCA40FBA;
   uint64_t rotatedKey = fixedKey;
 
   // Rotate key left by (original_value & 0x1F) bits
@@ -400,7 +400,7 @@ uint32_t TK__encrypt24BitWith8BitChecksum(uint32_t original_value)
 
 uint32_t TK__encrypt26BitWith6BitChecksum(uint32_t original_value)
 {
-  const uint64_t fixedKey = 0xEDCCFB96DCA40FBAull;
+  const uint64_t fixedKey = 0xEDCCFB96DCA40FBA;
   uint64_t rotatedKey = fixedKey;
 
   // Rotate key left by (original_value & 0x1F) bits
@@ -522,7 +522,7 @@ uint32_t TK__encrypt28BitWith4BitChecksumUsingKey(uint32_t original_value, uint6
 
 uint64_t TK__encrypt32BitWith32BitChecksum(uint32_t original_value)
 {
-  const uint64_t fixedKey = 0xEDCCFB96DCA40FBAull;
+  const uint64_t fixedKey = 0xEDCCFB96DCA40FBA;
   uint64_t rotatedKey = fixedKey;
 
   // Rotate key left by (original_value & 0x1F) bits
@@ -598,7 +598,7 @@ uint64_t TK__encrypt32BitWith32BitChecksumUsingKey(uint32_t original_value, uint
 
 uint64_t TK__encrypt56BitWith8BitChecksum(uint64_t original_value)
 {
-  const uint64_t fixedKey = 0xEDCCFB96DCA40FBAull;
+  const uint64_t fixedKey = 0xEDCCFB96DCA40FBA;
   uint64_t rotatedKey = fixedKey;
 
   // Rotate key left by (original_value & 0x1F) bits
@@ -925,16 +925,6 @@ uint64_t TK__decrypt56BitWith8BitChecksum(uint64_t value)
 
 int main()
 {
-  // uint32_t value = 0x6FB10400;
-  // uint32_t *ptr = new uint32_t;
-  // *ptr = value;
-
-  // printf("Original value: 0x%.8x\n", value);
-  // uint32_t transformed = TK__decrypt24BitWith8BitChecksum(value);
-  // printf("transformed: 0x%.8x\n", transformed);
-  // printf("value: 0x%.8x\n", *ptr);
-  // delete ptr;
-
   uint32_t value = 0x014cbbb9;
   uint32_t encrypted = TK__encrypt28BitWith4BitChecksumUsingKey(value, 0xEDCCFB96DCA40FBAull);
   uint32_t decrypted = TK__decrypt28BitWith4BitChecksumUsingKey(encrypted, 0xEDCCFB96DCA40FBAull);
