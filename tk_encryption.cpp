@@ -20,13 +20,17 @@ uint64_t TK__pack56BitWith8BitChecksum(uint64_t input);
 // ENCRYPTING
 uint32_t TK__transformAndPack24BitWith8BitChecksum(uint32_t *input);
 uint32_t TK__validateAndTransform28BitKey(uint32_t *target_addr, uint32_t original_value);
+uint64_t TK__encrypt32BitWith32BitChecksum(uint32_t original_value);
+uint64_t TK__encrypt32BitWith32BitChecksumUsingKey(uint32_t original_value, uint64_t key);
 
 // DECRYPTING
 uint32_t TK__decrypt20BitWith12BitChecksum(uint32_t value);
 uint32_t TK__decrypt24BitWith8BitChecksum(uint32_t value);
 uint32_t TK__decrypt26BitWith6BitChecksum(uint32_t value);
 uint32_t TK__decrypt28BitWith4BitChecksum(uint32_t value);
+uint32_t TK__decrypt28BitWith4BitChecksumUsingKey(uint32_t value, uint64_t key);
 uint64_t TK__decrypt32BitWith32BitChecksum(uint64_t value);
+uint64_t TK__decrypt32BitWith32BitChecksumUsingKey(uint64_t value, uint64_t key);
 uint64_t TK__decrypt56BitWith8BitChecksum(uint64_t value);
 
 // DEFINITIONS
@@ -221,9 +225,8 @@ uint64_t TK__pack32BitWith32BitChecksum(uint32_t input)
       rotated_magic = (rotated_magic >> 63) | (rotated_magic << 1); // Standard rotate left
     }
 
-    // Mix current byte into checksum
-    uint8_t current_byte = remaining_bits & 0xFF;
-    checksum ^= current_byte ^ (rotated_magic & 0xFF);
+    // XOR 32-bit remainder with 32-bit rotated magic (as per real implementation)
+    checksum ^= remaining_bits ^ static_cast<uint32_t>(rotated_magic);
 
     remaining_bits >>= 8;
   }
@@ -235,7 +238,7 @@ uint64_t TK__pack32BitWith32BitChecksum(uint32_t input)
   }
 
   // Pack into [checksum:32][input:32]
-  return (uint64_t)input | ((uint64_t)checksum << 32);
+  return static_cast<uint64_t>(input) | (static_cast<uint64_t>(checksum) << 32);
 }
 
 uint64_t TK__pack32BitWith32BitChecksumUsingKey(uint32_t value, uint64_t key)
@@ -249,15 +252,14 @@ uint64_t TK__pack32BitWith32BitChecksumUsingKey(uint32_t value, uint64_t key)
     uint64_t rotated_key = key;
     uint8_t rotate_count = byte_offset + 8;
 
-    // Rotate key left by (position + 8) bits
+    // Rotate key left by (byte_offset + 8) bits
     while (rotate_count--)
     {
       rotated_key = (rotated_key >> 63) | (rotated_key << 1);
     }
 
-    // Mix current byte into checksum
-    uint8_t current_byte = remaining_bits & 0xFF;
-    checksum ^= current_byte ^ (rotated_key & 0xFF);
+    // XOR full 32-bit remainder with full 32-bit rotated key (as in disassembly)
+    checksum ^= remaining_bits ^ static_cast<uint32_t>(rotated_key);
     remaining_bits >>= 8;
   }
 
@@ -268,7 +270,7 @@ uint64_t TK__pack32BitWith32BitChecksumUsingKey(uint32_t value, uint64_t key)
   }
 
   // Pack into [checksum:32][value:32]
-  return (uint64_t)value | ((uint64_t)checksum << 32);
+  return static_cast<uint64_t>(value) | (static_cast<uint64_t>(checksum) << 32);
 }
 
 uint64_t TK__pack56BitWith8BitChecksum(uint64_t input)
@@ -428,6 +430,93 @@ uint32_t TK__validateAndTransform28BitKey(uint32_t *target_addr, uint32_t origin
 }
 
 /**
+ * Encrypts a 32-bit value with 32-bit checksum
+ * @param original_value Input value to encrypt
+ * @return Encrypted 64-bit value ([32-bit-checksum][32-bit-data])
+ */
+uint64_t TK__encrypt32BitWith32BitChecksum(uint32_t original_value)
+{
+  const uint64_t fixedKey = 0xEDCCFB96DCA40FBAull;
+  uint64_t rotatedKey = fixedKey;
+
+  // Rotate key left by (original_value & 0x1F) bits
+  int rotateAmount = original_value & 0x1F;
+  for (int i = 0; i < rotateAmount; ++i)
+  {
+    rotatedKey = (rotatedKey >> 63) | (rotatedKey << 1);
+  }
+
+  // Compute base encrypted value
+  uint64_t baseEncrypted = original_value ^ (rotatedKey & 0xFFFFFFE0) ^ 0x1D;
+  uint64_t checksumSource = baseEncrypted;
+  uint32_t checksum = 0;
+
+  // Generate checksum using 4 rounds
+  for (int offset = 0; offset < 32; offset += 8)
+  {
+    uint64_t rotatedFixedKey = fixedKey;
+    int rotateCount = offset + 8;
+    for (int j = 0; j < rotateCount; ++j)
+    {
+      rotatedFixedKey = (rotatedFixedKey >> 63) | (rotatedFixedKey << 1);
+    }
+    checksum ^= (uint32_t)(checksumSource ^ rotatedFixedKey);
+    checksumSource >>= 8;
+  }
+
+  if (checksum == 0)
+  {
+    checksum = 1;
+  }
+
+  // Final encrypted 64-bit result
+  return baseEncrypted + ((uint64_t)checksum << 32);
+}
+
+/**
+ * Encrypts a 32-bit value with 32-bit checksum using a key
+ * @param original_value 32-bit input value to encrypt
+ * @param key 64-bit encryption key
+ * @return Encrypted 64-bit value ([32-bit-checksum][32-bit-data])
+ */
+uint64_t TK__encrypt32BitWith32BitChecksumUsingKey(uint32_t original_value, uint64_t key)
+{
+  uint64_t rotated = key;
+
+  // Rotate key left by (original_value & 0x1F) bits
+  int rotateBits = original_value & 0x1F;
+  for (int i = 0; i < rotateBits; ++i)
+  {
+    rotated = (rotated >> 63) | (rotated << 1);
+  }
+
+  // Base encrypted value
+  uint64_t baseEncrypted = original_value ^ (rotated & 0xFFFFFFE0) ^ 0x1D;
+  uint64_t checksumSource = baseEncrypted;
+  uint32_t checksum = 0;
+
+  // Generate checksum using key rotations
+  for (int offset = 0; offset < 32; offset += 8)
+  {
+    uint64_t temp = key;
+    int rotateCount = offset + 8;
+    for (int j = 0; j < rotateCount; ++j)
+    {
+      temp = (temp >> 63) | (temp << 1);
+    }
+    checksum ^= (uint32_t)(checksumSource ^ temp);
+    checksumSource >>= 8;
+  }
+
+  if (checksum == 0)
+  {
+    checksum = 1;
+  }
+
+  return baseEncrypted + ((uint64_t)checksum << 32);
+}
+
+/**
  * Validates and transforms a 32-bit value containing 20-bit data with 12-bit checksum
  * @param value Packed value ([12-bit-checksum][20-bit-data])
  * @return Transformed value or 0 if validation fails
@@ -558,6 +647,35 @@ uint32_t TK__decrypt28BitWith4BitChecksum(uint32_t value)
 }
 
 /**
+ * Validates and transforms a 32-bit encrypted value
+ * @param value Packed 32-bit value ([4-bit-checksum][28-bit-data])
+ * @param key Transformation key
+ * @return Transformed value or 0 if invalid
+ */
+uint32_t TK__decrypt28BitWith4BitChecksumUsingKey(uint32_t value, uint64_t key)
+{
+  // 1. Validate checksum
+  if (TK__pack28BitWith4BitChecksumUsingKey(value, key) != value)
+  {
+    return 0;
+  }
+
+  // 2. Initial transformation
+  uint32_t transformed = value ^ 0x1D;
+
+  // 3. Rotate key based on lower 5 bits
+  uint8_t rotations = transformed & 0x1F;
+  while (rotations--)
+  {
+    key = (key >> 63) | (key << 1); // Standard rotate left
+  }
+
+  // 4. Core transformation and scaling
+  uint32_t intermediate = (transformed ^ (key & 0xFFFFFFE0)) * 16;
+  return intermediate / 16; // Division by 16 (2^4) cancels the multiplication
+}
+
+/**
  * Validates and transforms a 64-bit value containing 32-bit data with 32-bit checksum
  * @param value Packed value ([32-bit-checksum][32-bit-data])
  * @return Transformed value or 0 if validation fails
@@ -606,6 +724,40 @@ uint64_t TK__decrypt32BitWith32BitChecksum(uint64_t value)
   // Final division with original behavior
   double result = static_cast<double>(intermediate) / (high_bit + static_cast<uint64_t>(divisor));
   return static_cast<uint64_t>(result);
+}
+
+/**
+ * Validates and transforms a 64-bit encrypted value
+ * @param value Packed 64-bit value
+ * @param key Transformation key
+ * @return Transformed value or 0 if invalid
+ */
+uint64_t TK__decrypt32BitWith32BitChecksumUsingKey(uint64_t value, uint64_t key)
+{
+  // 1. Validate checksum
+  if (TK__pack32BitWith32BitChecksumUsingKey(value, key) != value)
+  {
+    return 0;
+  }
+
+  // 2. Initial transformation
+  uint64_t transformed = value ^ 0x1D;
+
+  // 3. Rotate key based on lower 5 bits
+  uint8_t rotations = transformed & 0x1F;
+  while (rotations--)
+  {
+    key = (key >> 63) | (key << 1); // Rotate left
+  }
+
+  // 4. Core transformation
+  uint64_t intermediate = (transformed ^ (key & 0xFFFFFFFFFFFFFFE0)) << 32;
+
+  // 5. Division by 2^32 with original FP behavior
+  const double divisor = 4294967296.0; // 2^32
+  uint64_t high_bit = (divisor >= 9.223372e18) ? 0x8000000000000000 : 0;
+
+  return static_cast<uint64_t>(intermediate / (divisor + high_bit));
 }
 
 /**
@@ -669,12 +821,13 @@ int main()
   // printf("value: 0x%.8x\n", *ptr);
   // delete ptr;
 
-  // uint32_t value = 0x09AB9928;
-  // uint64_t checksum = TK__pack32BitWith32BitChecksum(value);
-  // uint64_t decrypted = TK__decrypt32BitWith32BitChecksum(checksum);
-  // printf("value: 0x%.8x\n", value);
-  // printf("checksum: 0x%.16llx\n", checksum);
-  // printf("decrypted: 0x%.16llx\n", decrypted);
+  uint32_t value = 1168544808;
+  uint64_t encrypted = TK__encrypt32BitWith32BitChecksum(value);
+  uint64_t decrypted = TK__decrypt32BitWith32BitChecksum(encrypted);
+  printf("value: 0x%.8x\n", value);
+  printf("encrypted: 0x%.16llx\n", encrypted);
+  printf("decrypted: 0x%.16llx\n", decrypted);
+  // printf("encrypted: %llu\n", encrypted);
 
   return 0;
 }
