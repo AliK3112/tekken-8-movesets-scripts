@@ -5,3 +5,6 @@ node_modules
 test*.cpp
 test*.exe
 cpp/*.exe
+test*.js
+test*.py
+experiment/*
