@@ -17,7 +17,22 @@ uintptr_t RAW_MOVESET_BASE = 0;
 uintptr_t getRawMovesetAddress(int side, DWORD offset);
 uintptr_t getMovesetAddress(uintptr_t playerAddr);
 uintptr_t getPlayerAddress(int side);
+int getCharIdFromMoveset(uintptr_t movesetAddr);
+int getCharId(uintptr_t playerAddr) { return game.readInt32(playerAddr + 0x168); }
 void scanAddresses();
+
+std::string toLower(const std::string &input)
+{
+  std::string result = input;
+  for (char &c : result)
+  {
+    if (c >= 'A' && c <= 'Z')
+    {
+      c += 'a' - 'A';
+    }
+  }
+  return result;
+}
 
 int main()
 {
@@ -30,8 +45,8 @@ int main()
 
     int player = 0;
     uintptr_t targetAddress = 0;
-    size_t fileSize = 0;
-    const char *targetFileName = nullptr;
+    uintptr_t fileSize = 0;
+    char targetFileName[255];
 
     if (dumpPopulatedMoveset)
     {
@@ -39,15 +54,22 @@ int main()
       uintptr_t playerAddr = getPlayerAddress(player);
       targetAddress = getMovesetAddress(playerAddr);
       fileSize = getRawMovesetAddress(player, RawFile::Size); // Reuse size from raw layout
-      targetFileName = "kazuya_moveset.bin";
+
+      // Putting moveset address at 0x10 since we know that offset is always 0
+      // This saves the additional 16 bytes from appending
+      game.write<uintptr_t>(targetAddress + 0x10, targetAddress);
     }
     else
     {
       // Raw moveset logic
       targetAddress = getRawMovesetAddress(player, RawFile::Address);
       fileSize = getRawMovesetAddress(player, RawFile::Size);
-      targetFileName = "raw_moveset.bin";
     }
+
+    // Preparing file name
+    int charId = getCharIdFromMoveset(targetAddress);
+    const char* charName = toLower(Tekken::getCharacterName(charId)).c_str();
+    sprintf_s(targetFileName, "%s_moveset%s.bin", charName, (dumpPopulatedMoveset ? "" : "_raw"));
 
     printf("Dumping from 0x%llx (%llu bytes)\n", targetAddress, fileSize);
 
@@ -57,14 +79,13 @@ int main()
     {
       std::ofstream outFile(targetFileName, std::ios::binary);
 
-      if (dumpPopulatedMoveset)
+      if (dumpPopulatedMoveset) // Redundant logic
       {
         // Write 8-byte address (little endian)
-        outFile.write(reinterpret_cast<const char *>(&targetAddress), sizeof(uintptr_t));
+        // outFile.write(reinterpret_cast<const char *>(&targetAddress), sizeof(uintptr_t));
 
         // Write 8-byte size (little endian)
-        uint64_t size64 = static_cast<uint64_t>(fileSize);
-        outFile.write(reinterpret_cast<const char *>(&size64), sizeof(uint64_t));
+        // outFile.write(reinterpret_cast<const char *>(&fileSize), sizeof(uint64_t));
       }
 
       // Write the actual data
@@ -99,6 +120,11 @@ uintptr_t getPlayerAddress(int side)
 uintptr_t getMovesetAddress(uintptr_t playerAddr)
 {
   return game.ReadUnsignedLong(playerAddr + MOVESET_OFFSET);
+}
+
+int getCharIdFromMoveset(uintptr_t movesetAddr)
+{
+  return (game.readInt32(movesetAddr + 0x160) - 1) / 0xFFFFu;
 }
 
 void scanAddresses()
