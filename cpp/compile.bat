@@ -1,0 +1,1 @@
+g++ -O2 -s -static -o tekken8_bosses.exe main.cpp
