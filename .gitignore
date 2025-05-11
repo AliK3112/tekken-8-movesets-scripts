@@ -4,3 +4,4 @@ node_modules
 .vscode
 test*.cpp
 test*.exe
+cpp/*.exe

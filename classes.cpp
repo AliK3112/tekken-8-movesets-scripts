@@ -323,3 +323,25 @@ struct tk_moveset
   tk_dialogue *dialogues_ptr;                    // Offset: 0x2a0
   uint64_t dialogues_count;                      // Offset: 0x2a8
 };
+
+struct __declspec(align(4)) tk_anim_related_struct
+{
+  uint64_t *function_pointers; // 0x0
+  uint64_t *player_ptr;        // 0x08
+  uint32_t _0x10;
+  float _0x14;
+  bool _0x18;
+  bool _0x19;
+  bool _0x1A;
+  bool _0x1B;
+  bool _0x1C;
+  bool _0x1D;
+  bool _0x1E;
+  bool _0x1F;
+  bool _0x20;
+  bool _0x21;
+  bool _0x22;
+  bool _0x23;
+  uint32_t chara_id;  // 0x24
+  uint32_t mota_type; // 0x28
+};
