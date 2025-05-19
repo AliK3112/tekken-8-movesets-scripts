@@ -3,10 +3,10 @@ const _ = require('lodash');
 const { join } = require("path");
 
 // const PATH = "./extracted_chars_1_09"
-const PATH = "C:/Users/alikh/Documents/Python/TekkenMovesetExtractor/extracted_chars"
+const PATH = "./extracted_chars_2_00_01"
 
 function hex(number, length = 8) {
-  return "0x" + parseInt(number).toString(16).padStart(length, "0").toUpperCase()
+  return "0x" + parseInt(number).toString(16).padStart(length, "0")
 }
 
 function toSignedInt32(unsignedInt) {
@@ -115,6 +115,8 @@ const CHARACTER_NAMES = {
   33: '[EDDY]',
   34: '[LIDIA]',
   35: '[HEIHACHI]',
+  36: '[CLIVE]',
+  37: '[ANNA]',
   116: '[DUMMY]',
   117: '[ANGEL_JIN]',
   118: '[TRUE_DEVIL_KAZUYA]',
@@ -130,6 +132,7 @@ function camelToTitle(str) {
 }
 
 module.exports = {
+  print: (...args) => console.log(...args),
   hex,
   toSignedInt32,
   getAllFiles,
