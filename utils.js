@@ -69,10 +69,9 @@ function sortByGameId(array) {
 }
 
 function getCharacterName(fileReader) {
-  if (fileReader.readInt16) {
-    const charId1 = fileReader.readInt16(0x164)
-    const charId2 = fileReader.readInt16(0x166)
-    return CHARACTER_NAMES[charId1 === 0 && charId2 === 1 ? 0 : charId2]
+  if (fileReader.readInt) {
+    const charId1 = Math.abs((fileReader.readInt(0x160) - 1) / 0xFFFF)
+    return CHARACTER_NAMES[charId1]
   } else {
     return CHARACTER_NAMES[fileReader] || '__UNKNOWN__'
   }
