@@ -1,6 +1,7 @@
+#include <filesystem>
+#include <fstream>
 #include "game.h"
 #include "tekken.h"
-#include <fstream>
 
 enum RawFile
 {
@@ -14,12 +15,15 @@ uintptr_t PLAYER_STRUCT_BASE = 0;
 uintptr_t MOVESET_OFFSET = 0;
 uintptr_t RAW_MOVESET_BASE = 0;
 
+int dumpMoveset(int player, bool dumpPopulatedMoveset);
 uintptr_t getRawMovesetAddress(int side, DWORD offset);
 uintptr_t getMovesetAddress(uintptr_t playerAddr);
 uintptr_t getPlayerAddress(int side);
 int getCharIdFromMoveset(uintptr_t movesetAddr);
 int getCharId(uintptr_t playerAddr) { return game.readInt32(playerAddr + 0x168); }
 void scanAddresses();
+bool movesetExists(uintptr_t moveset);
+uint64_t getMovesetSize(uintptr_t moveset);
 
 std::string toLower(const std::string &input)
 {
@@ -34,74 +38,133 @@ std::string toLower(const std::string &input)
   return result;
 }
 
+std::string prepareFilePath(int charId, bool flag)
+{
+  std::string charName = toLower(Tekken::getCharacterName(charId));
+  char buffer[255];
+  sprintf_s(buffer, "extracted_chars/t8_%d_%s_moveset%s.bin", charId, charName.c_str(), (flag ? "" : "_raw"));
+  return std::string(buffer);
+}
+
 int main()
 {
-  // Toggle this flag to control which version gets dumped
-  bool dumpPopulatedMoveset = true;
-
   if (game.Attach(L"Polaris-Win64-Shipping.exe"))
   {
     scanAddresses();
-
-    int player = 0;
-    uintptr_t targetAddress = 0;
-    uintptr_t fileSize = 0;
-    char targetFileName[255];
-
-    if (dumpPopulatedMoveset)
+    uintptr_t player = 0;
+    uintptr_t moveset = 0;
+    std::string filePath = "\0";
+    while (true)
     {
-      // Populated moveset logic
-      uintptr_t playerAddr = getPlayerAddress(player);
-      targetAddress = getMovesetAddress(playerAddr);
-      fileSize = getRawMovesetAddress(player, RawFile::Size); // Reuse size from raw layout
-
-      // Putting moveset address at 0x10 since we know that offset is always 0
-      // This saves the additional 16 bytes from appending
-      game.write<uintptr_t>(targetAddress + 0x10, targetAddress);
-    }
-    else
-    {
-      // Raw moveset logic
-      targetAddress = getRawMovesetAddress(player, RawFile::Address);
-      fileSize = getRawMovesetAddress(player, RawFile::Size);
-    }
-
-    // Preparing file name
-    int charId = getCharIdFromMoveset(targetAddress);
-    const char* charName = toLower(Tekken::getCharacterName(charId)).c_str();
-    sprintf_s(targetFileName, "%s_moveset%s.bin", charName, (dumpPopulatedMoveset ? "" : "_raw"));
-
-    printf("Dumping from 0x%llx (%llu bytes)\n", targetAddress, fileSize);
-
-    // Read memory from game
-    std::vector<uint8_t> data = game.readArray<uint8_t>(targetAddress, fileSize);
-    if (!data.empty())
-    {
-      std::ofstream outFile(targetFileName, std::ios::binary);
-
-      if (dumpPopulatedMoveset) // Redundant logic
+      Sleep(1000);
+      for (int side = 0; side < 2; side++)
       {
-        // Write 8-byte address (little endian)
-        // outFile.write(reinterpret_cast<const char *>(&targetAddress), sizeof(uintptr_t));
-
-        // Write 8-byte size (little endian)
-        // outFile.write(reinterpret_cast<const char *>(&fileSize), sizeof(uint64_t));
+        player = getPlayerAddress(side);
+        if (!player)
+          break;
+        moveset = getMovesetAddress(player);
+        if (!moveset)
+          break;
+        if (!movesetExists(moveset))
+          break;
+        int charId = getCharId(player);
+        std::filesystem::create_directories("extracted_chars");
+        if (!std::filesystem::exists(prepareFilePath(charId, true)))
+        {
+          dumpMoveset(side, true);
+          break;
+        }
+        if (!std::filesystem::exists(prepareFilePath(charId, false)))
+        {
+          if (side == 0)
+            dumpMoveset(side, false);
+        }
+        // dumpMoveset(side, true);
+        // break;
       }
-
-      // Write the actual data
-      outFile.write(reinterpret_cast<const char *>(data.data()), data.size());
-      outFile.close();
-
-      printf("Dump successful: %s\n", targetFileName);
+      // break;
     }
-    else
-    {
-      printf("Failed to read memory at 0x%llx\n", targetAddress);
-    }
+  }
+  return 0;
+}
+
+int dumpMoveset(int player, bool dumpPopulatedMoveset)
+{
+  uintptr_t targetAddress = 0;
+  uint64_t fileSize = 0;
+  std::string filePath;
+  // char *targetFileName = nullptr;
+
+  if (dumpPopulatedMoveset)
+  {
+    // Populated moveset logic
+    uintptr_t playerAddr = getPlayerAddress(player);
+    targetAddress = getMovesetAddress(playerAddr);
+    fileSize = getMovesetSize(targetAddress);
+
+    // Putting moveset address at 0x10 since we know that offset is always 0
+    // This saves the additional 16 bytes from appending
+    game.write<uintptr_t>(targetAddress + 0x10, targetAddress);
   }
   else
   {
-    printf("Failed to attach to the game.\n");
+    // Raw moveset logic
+    targetAddress = getRawMovesetAddress(player, RawFile::Address);
+    fileSize = getRawMovesetAddress(player, RawFile::Size);
+  }
+
+  // Carry over some data from raw moveset to populated moveset
+  if (dumpPopulatedMoveset)
+  {
+    uintptr_t rawMoveset = getRawMovesetAddress(player, RawFile::Address);
+    uintptr_t moveset = targetAddress;
+    // Putting moveset address at 0x10 since we know that offset is always 0
+    // This saves the additional 16 bytes from appending
+    game.write<uintptr_t>(moveset + 0x10, moveset); // Char Name
+    game.write<uintptr_t>(moveset + 0x18, game.read<uintptr_t>(rawMoveset + 0x18)); // Creator Name
+    game.write<uintptr_t>(moveset + 0x20, game.read<uintptr_t>(rawMoveset + 0x20)); // Date
+    game.write<uintptr_t>(moveset + 0x28, game.read<uintptr_t>(rawMoveset + 0x28)); // Full Date
+    game.write<uintptr_t>(moveset + 0x170, game.read<uintptr_t>(rawMoveset + 0x170)); // String Block End
+    uintptr_t count = game.read<uintptr_t>(moveset + 0x238);
+    uintptr_t start = game.read<uintptr_t>(moveset + 0x230);
+    uintptr_t rawAddr = 0, addr = 0;
+    for (uintptr_t i = 0; i < count; i++)
+    {
+      addr = start + i * 0x448;
+      rawAddr = (addr - moveset) + rawMoveset;
+      game.write<uint64_t>(addr + 0x40, game.read<uint64_t>(rawAddr + 0x40)); // Move Name
+      game.write<uint64_t>(addr + 0x48, game.read<uint64_t>(rawAddr + 0x48)); // Anim Name
+    }
+  }
+
+  // Preparing filename
+  int charId = getCharIdFromMoveset(targetAddress);
+  const char* targetFileName = prepareFilePath(charId, dumpPopulatedMoveset).c_str();
+
+  // Read memory from game
+  std::vector<uint8_t> data = game.readArray<uint8_t>(targetAddress, fileSize);
+  if (!data.empty())
+  {
+    std::ofstream outFile(targetFileName, std::ios::binary);
+
+    if (dumpPopulatedMoveset) // Redundant logic
+    {
+      // Write 8-byte address (little endian)
+      // outFile.write(reinterpret_cast<const char *>(&targetAddress), sizeof(uintptr_t));
+
+      // Write 8-byte size (little endian)
+      // outFile.write(reinterpret_cast<const char *>(&fileSize), sizeof(uint64_t));
+    }
+
+    // Write the actual data
+    outFile.write(reinterpret_cast<const char *>(data.data()), data.size());
+    outFile.close();
+
+    printf("Dump successful: %s (%llu bytes)\n", targetFileName, fileSize);
+  }
+  else
+  {
+    printf("Failed to read memory at 0x%llx\n", targetAddress);
   }
 
   return 0;
@@ -109,22 +172,28 @@ int main()
 
 uintptr_t getRawMovesetAddress(int side, DWORD offset)
 {
-  return game.getAddress({(DWORD)RAW_MOVESET_BASE, 0x68, (DWORD)(0x2D0 + side * 0x10), 0x18, 0x8, 0x118, offset});
+  if (side == 1)
+  {
+    return game.getAddress({(DWORD)RAW_MOVESET_BASE, 0x18, 0x60, 0x0, 0x18, 0x8, 0x140, 0x20 + offset});
+  }
+  return game.getAddress({(DWORD)RAW_MOVESET_BASE, 0x18, 0x60, 0x18, 0x8, 0x118, offset});
 }
 
 uintptr_t getPlayerAddress(int side)
 {
+  if (side != 0 && side != 1)
+    return 0;
   return game.getAddress({(DWORD)PLAYER_STRUCT_BASE, (DWORD)(0x30 + side * 8)});
 }
 
 uintptr_t getMovesetAddress(uintptr_t playerAddr)
 {
-  return game.ReadUnsignedLong(playerAddr + MOVESET_OFFSET);
+  return playerAddr ? game.ReadUnsignedLong(playerAddr + MOVESET_OFFSET) : 0;
 }
 
 int getCharIdFromMoveset(uintptr_t movesetAddr)
 {
-  return (game.readInt32(movesetAddr + 0x160) - 1) / 0xFFFFu;
+  return movesetAddr ? ((game.readInt32(movesetAddr + 0x160) - 1) / 0xFFFFu) : -1;
 }
 
 void scanAddresses()
@@ -175,4 +244,18 @@ void scanAddresses()
   printf("MOVESET_OFFSET: 0x%llX\n", MOVESET_OFFSET);
   printf("RAW_MOVESET_BASE: 0x%llX\n", RAW_MOVESET_BASE);
   printf("Addresses successfully scanned...\n");
+}
+
+bool movesetExists(uintptr_t moveset)
+{
+  return moveset ? game.ReadString(moveset + 8, 3).compare("TEK") == 0 : 0;
+}
+
+uint64_t getMovesetSize(uintptr_t moveset)
+{
+  if (!moveset)
+    return 0;
+  uintptr_t dialogues = game.readUInt64(moveset + 0x2A0);
+  uintptr_t count = game.readUInt64(moveset + 0x2A8);
+  return (dialogues + 0x18 * count) - moveset;
 }
