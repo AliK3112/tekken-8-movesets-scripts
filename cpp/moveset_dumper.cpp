@@ -74,11 +74,11 @@ int main()
           dumpMoveset(side, true);
           break;
         }
-        if (!std::filesystem::exists(prepareFilePath(charId, false)))
-        {
-          if (side == 0)
-            dumpMoveset(side, false);
-        }
+        // if (!std::filesystem::exists(prepareFilePath(charId, false)))
+        // {
+        //   if (side == 0)
+        //     dumpMoveset(side, false);
+        // }
         // dumpMoveset(side, true);
         // break;
       }
