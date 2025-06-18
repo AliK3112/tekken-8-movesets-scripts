@@ -24,6 +24,7 @@ int getCharId(uintptr_t playerAddr) { return game.readInt32(playerAddr + 0x168);
 void scanAddresses();
 bool movesetExists(uintptr_t moveset);
 uint64_t getMovesetSize(uintptr_t moveset);
+void carryValues(int player, uintptr_t moveset);
 
 std::string toLower(const std::string &input)
 {
@@ -116,25 +117,7 @@ int dumpMoveset(int player, bool dumpPopulatedMoveset)
   // Carry over some data from raw moveset to populated moveset
   if (dumpPopulatedMoveset)
   {
-    uintptr_t rawMoveset = getRawMovesetAddress(player, RawFile::Address);
-    uintptr_t moveset = targetAddress;
-    // Putting moveset address at 0x10 since we know that offset is always 0
-    // This saves the additional 16 bytes from appending
-    game.write<uintptr_t>(moveset + 0x10, moveset); // Char Name
-    game.write<uintptr_t>(moveset + 0x18, game.read<uintptr_t>(rawMoveset + 0x18)); // Creator Name
-    game.write<uintptr_t>(moveset + 0x20, game.read<uintptr_t>(rawMoveset + 0x20)); // Date
-    game.write<uintptr_t>(moveset + 0x28, game.read<uintptr_t>(rawMoveset + 0x28)); // Full Date
-    game.write<uintptr_t>(moveset + 0x170, game.read<uintptr_t>(rawMoveset + 0x170)); // String Block End
-    uintptr_t count = game.read<uintptr_t>(moveset + 0x238);
-    uintptr_t start = game.read<uintptr_t>(moveset + 0x230);
-    uintptr_t rawAddr = 0, addr = 0;
-    for (uintptr_t i = 0; i < count; i++)
-    {
-      addr = start + i * 0x448;
-      rawAddr = (addr - moveset) + rawMoveset;
-      game.write<uint64_t>(addr + 0x40, game.read<uint64_t>(rawAddr + 0x40)); // Move Name
-      game.write<uint64_t>(addr + 0x48, game.read<uint64_t>(rawAddr + 0x48)); // Anim Name
-    }
+    carryValues(player, targetAddress);
   }
 
   // Preparing filename
@@ -258,4 +241,34 @@ uint64_t getMovesetSize(uintptr_t moveset)
   uintptr_t dialogues = game.readUInt64(moveset + 0x2A0);
   uintptr_t count = game.readUInt64(moveset + 0x2A8);
   return (dialogues + 0x18 * count) - moveset;
+}
+
+void carryValues(int player, uintptr_t moveset)
+{
+  uintptr_t rawMoveset = getRawMovesetAddress(player, RawFile::Address);
+  if (getCharIdFromMoveset(moveset) != getCharIdFromMoveset(rawMoveset))
+  {
+    printf("Raw Moveset File ID mismatch for Player %d\n", player);
+    return;
+  }
+
+  // Putting moveset address at 0x10 since we know that offset is always 0
+  // This saves the additional 16 bytes from appending
+  game.write<uintptr_t>(moveset + 0x10, moveset);                                   // Char Name
+  game.write<uintptr_t>(moveset + 0x18, game.read<uintptr_t>(rawMoveset + 0x18));   // Creator Name
+  game.write<uintptr_t>(moveset + 0x20, game.read<uintptr_t>(rawMoveset + 0x20));   // Date
+  game.write<uintptr_t>(moveset + 0x28, game.read<uintptr_t>(rawMoveset + 0x28));   // Full Date
+  game.write<uintptr_t>(moveset + 0x170, game.read<uintptr_t>(rawMoveset + 0x170)); // String Block End
+
+  // Going through the moves array and copying offsets
+  uintptr_t start = game.read<uintptr_t>(moveset + 0x230);
+  uintptr_t count = game.read<uintptr_t>(moveset + 0x238);
+  uintptr_t rawAddr = 0, addr = 0;
+  for (uintptr_t i = 0; i < count; i++)
+  {
+    addr = start + i * 0x448;
+    rawAddr = (addr - moveset) + rawMoveset;
+    game.write<uint64_t>(addr + 0x40, game.read<uint64_t>(rawAddr + 0x40)); // Move Name
+    game.write<uint64_t>(addr + 0x48, game.read<uint64_t>(rawAddr + 0x48)); // Anim Name
+  }
 }
