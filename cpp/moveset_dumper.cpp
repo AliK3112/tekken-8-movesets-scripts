@@ -16,11 +16,11 @@ uintptr_t MOVESET_OFFSET = 0;
 uintptr_t RAW_MOVESET_BASE = 0;
 
 int dumpMoveset(int player, bool dumpPopulatedMoveset);
-uintptr_t getRawMovesetAddress(int side, DWORD offset);
+uintptr_t getRawMovesetAddress(int targetCharId, DWORD offset);
 uintptr_t getMovesetAddress(uintptr_t playerAddr);
 uintptr_t getPlayerAddress(int side);
 int getCharIdFromMoveset(uintptr_t movesetAddr);
-int getCharId(uintptr_t playerAddr) { return game.readInt32(playerAddr + 0x168); }
+int getCharId(uintptr_t playerAddr) { return playerAddr ? game.readInt32(playerAddr + 0x168) : -1; }
 void scanAddresses();
 bool movesetExists(uintptr_t moveset);
 uint64_t getMovesetSize(uintptr_t moveset);
@@ -122,7 +122,7 @@ int dumpMoveset(int player, bool dumpPopulatedMoveset)
 
   // Preparing filename
   int charId = getCharIdFromMoveset(targetAddress);
-  const char* targetFileName = prepareFilePath(charId, dumpPopulatedMoveset).c_str();
+  const char *targetFileName = prepareFilePath(charId, dumpPopulatedMoveset).c_str();
 
   // Read memory from game
   std::vector<uint8_t> data = game.readArray<uint8_t>(targetAddress, fileSize);
@@ -153,13 +153,25 @@ int dumpMoveset(int player, bool dumpPopulatedMoveset)
   return 0;
 }
 
-uintptr_t getRawMovesetAddress(int side, DWORD offset)
+uintptr_t getRawMovesetAddress(int targetCharId, DWORD offset)
 {
-  if (side == 1)
+  DWORD base = static_cast<DWORD>(RAW_MOVESET_BASE);
+
+  std::vector<std::vector<DWORD>> addressPaths = {
+      {base, 0x18, 0x60, 0x18, 0x8, 0x118, offset},
+      {base, 0x18, 0x60, 0x0, 0x18, 0x8, 0x140, 0x20 + offset},
+      {base, 0x18, 0x68, 0x18, 0x8, 0x140, 0x20 + offset}};
+
+  for (const auto &path : addressPaths)
   {
-    return game.getAddress({(DWORD)RAW_MOVESET_BASE, 0x18, 0x60, 0x0, 0x18, 0x8, 0x140, 0x20 + offset});
+    uintptr_t addr = game.getAddress(path);
+    if (getCharIdFromMoveset(addr) == targetCharId)
+    {
+      return addr;
+    }
   }
-  return game.getAddress({(DWORD)RAW_MOVESET_BASE, 0x18, 0x60, 0x18, 0x8, 0x118, offset});
+
+  return 0; // Not found
 }
 
 uintptr_t getPlayerAddress(int side)
@@ -176,7 +188,8 @@ uintptr_t getMovesetAddress(uintptr_t playerAddr)
 
 int getCharIdFromMoveset(uintptr_t movesetAddr)
 {
-  return movesetAddr ? ((game.readInt32(movesetAddr + 0x160) - 1) / 0xFFFFu) : -1;
+  int id = movesetAddr ? ((game.readInt32(movesetAddr + 0x160) - 1) / 0xFFFFu) : -1;
+  return id == 128 ? 116 : id; // Handling the case for Dummy
 }
 
 void scanAddresses()
@@ -245,10 +258,12 @@ uint64_t getMovesetSize(uintptr_t moveset)
 
 void carryValues(int player, uintptr_t moveset)
 {
-  uintptr_t rawMoveset = getRawMovesetAddress(player, RawFile::Address);
-  if (getCharIdFromMoveset(moveset) != getCharIdFromMoveset(rawMoveset))
+  int charId = getCharId(getPlayerAddress(player));
+  uintptr_t rawMoveset = getRawMovesetAddress(charId, RawFile::Address);
+
+  if (!rawMoveset)
   {
-    printf("Raw Moveset File ID mismatch for Player %d\n", player);
+    printf("Raw Moveset File ID mismatch for Character %s\n", Tekken::getCharacterName(charId).c_str());
     return;
   }
 
