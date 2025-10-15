@@ -54,7 +54,7 @@ int main()
   printf("player_curr_move_offset=0x%llX\n", readOffsetFromInstr(addr + base));
 
   addr = scanForOffset(Tekken::NEXT_MOVE_ADDR_SIG_BYTES, game.getBaseAddress() + 0x1800000);
-  printf("next_move_offset=0x%llX\n", readOffsetFromInstr(addr + base, 0x49));
+  printf("next_move_offset=0x%llX\n", readOffsetFromInstr(addr + base));
 
   addr = scanForOffset(Tekken::CURRENT_MOVE_FRAME_SIG_BYTES, game.getBaseAddress() + 0x1800000);
   printf("curr_frame_timer_offset=0x%llX\n", readOffsetFromInstr(addr + base, 2));
