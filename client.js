@@ -33,36 +33,56 @@ async function main() {
   // }
 
   // Read the function that seems to return the names for tkdata list files
-  const getFbsDataFileName = async (index) => {
-    try {
-      const result = await script.exports.callGameFunc(moduleName, 0x5912C80, {
-        retType: 'pointer',
-        argsTypes: ['int'],
-        args: [index]
-      });
-      // console.log('retValue:', result);
-      const code = await script.exports.readCString(result);
-      // console.log('Result:', code);
-      return code;
-    } catch (err) {
-      console.error('callGameFunc failed:', err);
-      return null;
-    }
-  };
+  // const getFbsDataFileName = async (index) => {
+  //   try {
+  //     const result = await script.exports.callGameFunc(moduleName, 0x5912C80, {
+  //       retType: 'pointer',
+  //       argsTypes: ['int'],
+  //       args: [index]
+  //     });
+  //     // console.log('retValue:', result);
+  //     const code = await script.exports.readCString(result);
+  //     // console.log('Result:', code);
+  //     return code;
+  //   } catch (err) {
+  //     console.error('callGameFunc failed:', err);
+  //     return null;
+  //   }
+  // };
 
-  for (let i = 0; i < 100; i++) {
-    const name = await getFbsDataFileName(i);
-    // console.log(`FbsData file name [${i}]:`, name);
-    console.log(`${i}:`, name);
-  }
+  // for (let i = 0; i < 100; i++) {
+  //   const name = await getFbsDataFileName(i);
+  //   // console.log(`FbsData file name [${i}]:`, name);
+  //   console.log(`${i}:`, name);
+  // }
 
 
   // try {
-  //   const result = await script.exports.callGameFunc(moduleName, 0x5FBAC60, { retType: 'bool' });
-  //   console.log('Result:', result);
+  //   const result = await script.exports.callGameFunc(moduleName, 0x5B653B0, { retType: 'bool' });
+  //   console.log('Result:', Boolean(result));
   // } catch (err) {
   //   console.error('callGameFunc failed:', err);
   // }
+
+  // "Polaris-Win64-Shipping.exe"+5A03AF0 
+  const deriveKey = async (index) => {
+    try {
+      const result = await script.exports.callGameFunc(moduleName, 0x5A03AF0, {
+        retType: 'pointer',
+        argsTypes: ['ulong', 'int'],
+        args: [0, index]
+      });
+      // console.log('Result:', result);
+      return await script.exports.readCString(result);
+    } catch (err) {
+      console.error('callGameFunc failed:', err);
+    }
+  }
+
+  for (let i = 0; i < 120; i++) {
+    const key = await deriveKey(i);
+    console.log(`Derived key [${i}]: ${key} - (${key.length})`);
+  }
 
   // --- optional: if you prefer to use a known base rather than Module.findBaseAddress ---
   // const knownBase = '0x140000000';
