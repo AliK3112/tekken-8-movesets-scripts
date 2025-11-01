@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "frida": "^17.4.4",
     "lodash": "^4.17.21",
     "moment": "^2.30.1"
   }
