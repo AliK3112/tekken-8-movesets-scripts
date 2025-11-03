@@ -107,7 +107,7 @@ std::string getCharCode(int charId)
   case 25: return "crw";
   case 26: return "jly";
   case 27: return "aml";
-  case 28: return "zbn";
+  case 28: return "zbr";
   case 29: return "cat";
   case 30: return "lon";
   case 31: return "bbn";
@@ -116,6 +116,9 @@ std::string getCharCode(int charId)
   case 34: return "cbr";
   case 35: return "bee";
   case 36: return "okm";
+  case 37: return "kgr";
+  case 38: return "tgr";
+  case 39: return "knk";
   case 116: return "dek";
   case 117: return "xxa";
   case 118: return "xxb";
@@ -167,6 +170,10 @@ std::string getCharacterName(int id) {
     case 34: return "LIDIA";
     case 35: return "HEIHACHI";
     case 36: return "CLIVE";
+    case 37: return "ANNA";
+    case 38: return "FAHKUMRAM";
+    case 39: return "ARMOR KING";
+    case 40: return "MIARY ZO";
     case 116: return "DUMMY";
     case 117: return "ANGEL_JIN";
     case 118: return "TRUE_DEVIL_KAZUYA";
@@ -175,7 +182,8 @@ std::string getCharacterName(int id) {
     case 121: return "DEVIL_JIN_2";
     case 122: return "TEKKEN_MONK";
     case 123: return "SEIRYU";
-    default: throw std::invalid_argument("Invalid character ID");
+    // default: throw std::invalid_argument("Invalid character ID");
+    default: return "UNKNOWN";
   }
 }
 
@@ -203,6 +211,13 @@ std::string getNamePath(const std::string& code)
   std::stringstream ss;
   ss << "T_UI_HUD_Character_Name_" << code;
   return ss.str();
+}
+
+std::string getCostumePath(char charId)
+{
+  const std::string code = getCharCode(charId);
+  std::string costume = "CS_" + code + "_1p";
+  return "/Game/Character/Item/Customize_Set/" + code + "/" + costume + "." + costume;
 }
 
 std::string getBossName(int bossCode)
