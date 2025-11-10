@@ -3,6 +3,7 @@ typedef unsigned int uint32_t;
 typedef int int32_t;
 typedef unsigned short uint16_t;
 typedef short int16_t;
+typedef unsigned char uint8_t;
 
 union tk_param
 {
@@ -344,4 +345,22 @@ struct __declspec(align(4)) tk_anim_related_struct
   bool _0x23;
   uint32_t chara_id;  // 0x24
   uint32_t mota_type; // 0x28
+};
+
+// 128 bytes (0x80)
+struct TK__FOOTER
+{
+  uint64_t magic;                // "BNBinPak";
+  uint64_t someFlag;             // usually 1
+  uint8_t decompress;            // 0x00 = no, 0x01 = yes. usually 1
+  uint8_t aesKeyIndex;           // Used to generate an AES256 key from the keypool, usually 1
+  uint8_t decryptionChecksum;    // Used to verify if Decrytion is value
+  uint8_t decompressionChecksum; // Used to verify if Decompression is valid
+  uint32_t _0x14;
+  uint64_t tocOffset;           // 0x18 - Offset to the Encrypted TOC Block
+  uint64_t compressedTocSize;   // 0x20 - Size of the compressed TOC Block
+  uint64_t uncompressedTocSize; // 0x28 - Size of the uncompressed TOC Block
+  uint64_t _0x30;               // Value 0f 0x10. Alignment/padding?
+  uint64_t someOtherOffset;     // 0x38 - Another offset, Value is always tocOffset-0x10.
+  uint32_t _0x40[16];
 };

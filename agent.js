@@ -1,5 +1,35 @@
 'use strict';
 
+// constants
+const MEM_COMMIT = 0x1000;
+const MEM_RESERVE = 0x2000;
+const PAGE_READWRITE = 0x04;
+const MEM_RELEASE = 0x8000;
+
+// resolve kernel32 functions once
+// let _VirtualAlloc = null;
+// let _VirtualFree = null;
+// (function init() {
+//   const va = Module.findExportByName('kernel32.dll', 'VirtualAlloc');
+//   const vf = Module.findExportByName('kernel32.dll', 'VirtualFree');
+//   if (!va || !vf) {
+//     // if not found, leave null -> fallbacks will throw
+//     return;
+//   }
+//   _VirtualAlloc = new NativeFunction(ptr(va), 'pointer', ['pointer', 'ulong', 'ulong', 'ulong']);
+//   _VirtualFree = new NativeFunction(ptr(vf), 'bool', ['pointer', 'ulong', 'ulong']);
+// })();
+
+/**
+ * helper: compute UTF-8 byte length (in JS running inside Frida)
+ */
+function utf8ByteLength(s) {
+  if (s === null || s === undefined) return 1;
+  s = String(s);
+  // encodeURIComponent + unescape yields raw bytes for UTF-8 in JS runtime
+  return unescape(encodeURIComponent(s)).length + 1; // +1 for NUL
+}
+
 function findModuleBase(moduleName) {
   if (typeof Module !== 'undefined' && typeof Module.findBaseAddress === 'function') {
     return Module.findBaseAddress(moduleName); // NativePointer or null
@@ -13,6 +43,9 @@ function findModuleBase(moduleName) {
 }
 
 rpc.exports = {
+  getModuleBase: function (moduleName) {
+    return findModuleBase(moduleName);
+  },
   // call the target function by module name + rva
   callByModuleRva: function (moduleName, rva, charId, isUpper) {
     const rvaNum = (typeof rva === 'string') ? parseInt(rva, 16) : (rva >>> 0);
@@ -67,7 +100,33 @@ rpc.exports = {
   readCString: (address) => {
     const addrPtr = ptr(address);
     return addrPtr.readCString();
-  }
+  },
+
+  // allocateUtf8String: function (str) {
+  //   if (!_VirtualAlloc) throw new Error('VirtualAlloc not available');
+  //   if (str === null || str === undefined) str = '';
+  //   str = String(str);
+
+  //   const size = utf8ByteLength(str);
+  //   // VirtualAlloc(NULL, size, MEM_COMMIT|MEM_RESERVE, PAGE_READWRITE)
+  //   const out = _VirtualAlloc(ptr('0x0'), size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+  //   if (out.isNull()) throw new Error('VirtualAlloc failed');
+
+  //   // write string (Frida helper writes UTF-8 and NUL)
+  //   Memory.writeUtf8String(out, str);
+
+  //   return out.toString(); // e.g. '0x140123456'
+  // },
+
+  // free: function (ptrish) {
+  //   if (!_VirtualFree) throw new Error('VirtualFree not available');
+  //   if (!ptrish) return false;
+  //   const p = ptr(ptrish.toString());
+  //   if (p.isNull()) return false;
+  //   // VirtualFree(ptr, 0, MEM_RELEASE)
+  //   const ok = _VirtualFree(p, ptr('0x0'), MEM_RELEASE);
+  //   return !!ok;
+  // },
 };
 
 function callAndRead(funcPtr, charId, isUpper) {
