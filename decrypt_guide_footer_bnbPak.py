@@ -122,8 +122,11 @@ def decrypt_footer_block(footer_data_in): #
     print("Decrypting footer block")
     keys_used_for_xor = []
     for i in range(16):
-        intermediate_key = generated_intermediate_keys[i]
-        key_32 = get_xor_key_32bit(intermediate_key) # Get the actual 32-bit XOR key
+        # intermediate_key = generated_intermediate_keys[i]
+        # key_32 = get_xor_key_32bit(intermediate_key) # Get the actual 32-bit XOR key
+        # print(f"Intermediate Key {i}: 0x{intermediate_key:016X} : 0x{key_32:08X}")
+        # Can use the key-gen constants directly
+        key_32 = INITIAL_KEY_GEN_CONSTANTS[i]
 
         keys_used_for_xor.append(key_32) # Store for debugging
 
@@ -140,8 +143,8 @@ def decrypt_footer_block(footer_data_in): #
         footer_data[current_offset+2] ^= key_byte3
         current_offset += 4
 
-    # print("[DEBUG] 32-bit keys used for XORing:")
-    # print([f"0x{k:08X}" for k in keys_used_for_xor])
+    print("[DEBUG] 32-bit keys used for XORing:")
+    print([f"0x{k:08X}" for k in keys_used_for_xor])
 
     try:
         decrypted_magic_bytes = footer_data[0:8]
