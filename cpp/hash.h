@@ -1,16 +1,14 @@
-#include <cstdint>
-#include <cstring>
-#include <iostream>
+#include "hexrays.h"
 
-inline uint32_t __ROL4__(uint32_t value, uint8_t shift)
-{
-  return (value << shift) | (value >> (32 - shift));
-}
+// inline uint32_t __ROL4__(uint32_t value, uint8_t shift)
+// {
+//   return (value << shift) | (value >> (32 - shift));
+// }
 
-inline uint32_t __ROR4__(uint32_t value, uint8_t shift)
-{
-  return (value >> shift) | (value << (32 - shift));
-}
+// inline uint32_t __ROR4__(uint32_t value, uint8_t shift)
+// {
+//   return (value >> shift) | (value << (32 - shift));
+// }
 
 // inline uint32_t _byteswap_ulong(uint32_t value)
 // {
@@ -20,16 +18,16 @@ inline uint32_t __ROR4__(uint32_t value, uint8_t shift)
 //          ((value << 24) & 0xFF000000);  // Move byte 3 to byte 0
 // }
 
-inline uint32_t _LODWORD(uint64_t value)
-{
-  return static_cast<uint32_t>(value & 0xFFFFFFFF); // Mask the lower 32 bits
-}
+// inline uint32_t _LODWORD(uint64_t value)
+// {
+//   return static_cast<uint32_t>(value & 0xFFFFFFFF); // Mask the lower 32 bits
+// }
 
-inline uint32_t _HIWORD(uint64_t value)
-{
-  return static_cast<uint32_t>(
-      value >> 32); // Shift right by 32 bits to get the upper 32 bits
-}
+// inline uint32_t _HIWORD(uint64_t value)
+// {
+//   return static_cast<uint32_t>(
+//       value >> 32); // Shift right by 32 bits to get the upper 32 bits
+// }
 
 int64_t ComputeKamuiHash12To24(uint8_t *a1, uint32_t length);
 
@@ -163,8 +161,8 @@ int64_t ComputeKamuiHash(uint8_t *a1, uint64_t length)
       v15 = v24;
       v16 = 5 * _byteswap_ulong(v22 ^ (5 * (v25 - 0x52250EC)));
       // ORIGINAL DECOMPILED LINE
-      // _LODWORD(v17) = v17 - 1;
-      v17 = (static_cast<uint64_t>(_HIWORD(v17)) << 32) | (_LODWORD(v17) - 1);
+      LODWORD(v17) = v17 - 1;
+      // v17 = (static_cast<uint64_t>(_HIWORD(v17)) << 32) | (LODWORD(v17) - 1);
     } while ((uint32_t)v17);
     return 0xCC9E2D51 *
            __ROL4__(
@@ -350,5 +348,5 @@ int64_t ComputeKamuiHash12To24(uint8_t *a1,
         ((0x85EBCA6B * ((5 * (v4 - 0x52250EC)) ^
                         ((uint32_t)(5 * (v4 - 0x52250EC)) >> 16))) >>
          13));
-  return v5 ^ _HIWORD(v5);
+  return v5 ^ HIWORD(v5);
 }
