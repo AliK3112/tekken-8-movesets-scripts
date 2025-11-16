@@ -37,102 +37,6 @@ Binary\avatar\*.ava
 const buildMotbin = (code) => `mothead\\bin\\${code}.motbin`;
 const buildMvlbin = (code) => `mothead\\movelist\\${code}.mvl`;
 
-// 13 is related to "drama"
-
-// Mapping
-const mapping = {
-  0x10c4ef5f: "mothead\\bin\\ccn.motbin",
-  0x12233177: "mothead\\bin\\cht.motbin",
-  0x150ad517: "mothead\\bin\\ctr.motbin",
-  0x15563876: "mothead\\movelist\\okm.mvl",
-  0x16f1c1a4: "mothead\\bin\\pig.motbin",
-  0x198ffb2f: "mothead\\bin\\crw.motbin",
-  0x1c974551: "mothead\\bin\\okm.motbin",
-  0x1fb7f371: "mothead\\bin\\mnt.motbin",
-  0x20683930: "mothead\\movelist\\dog.mvl",
-  0x20bb5017: "mothead\\movelist\\klw.mvl",
-  0x26288457: "mothead\\movelist\\cat.mvl",
-  0x2721cd9: "mothead\\bin\\cml.motbin",
-  0x28089dd7: "mothead\\movelist\\hrs.mvl",
-  0x298353b9: "mothead\\movelist\\cbr.mvl",
-  0x2c7d4530: "mothead\\bin\\hrs.motbin",
-  0x3229044: "mothead\\bin\\grf.motbin",
-  0x337e022d: "mothead\\bin\\wlf.motbin",
-  0x35b5bcfe: "mothead\\bin\\bee.motbin",
-  0x38ea896b: "mothead\\bin\\dek.motbin",
-  0x39279177: "mothead\\movelist\\ccn.mvl",
-  0x39a58d5f: "mothead\\bin\\aml.motbin",
-  0x3bef7afc: "mothead\\bin\\xxd.motbin",
-  0x43043a1c: "mothead\\movelist\\bbn.mvl",
-  0x4a541bb0: "mothead\\bin\\bsn.motbin",
-  0x51f8adfd: "mothead\\movelist\\ghp.mvl",
-  0x53883b88: "mothead\\bin\\bbn.motbin",
-  0x5696ef41: "mothead\\bin\\xxe.motbin",
-  0x59585ab0: "mothead\\bin\\kgr.motbin",
-  0x5b3fd9fd: "mothead\\movelist\\cht.mvl",
-  0x6002d193: "mothead\\bin\\pgn.motbin",
-  0x651856c1: "mothead\\bin\\ghp.motbin",
-  0x66e7e2ab: "mothead\\bin\\snk.motbin",
-  0x6a1ea5bb: "mothead\\movelist\\ctr.mvl",
-  0x6c4c25ba: "mothead\\bin\\rat.motbin",
-  0x6eaec4b0: "mothead\\movelist\\lzd.mvl",
-  0x72825f8b: "mothead\\movelist\\jly.mvl",
-  0x73bea3c1: "mothead\\movelist\\rat.mvl",
-  0x7da44738: "mothead\\movelist\\bee.mvl",
-  0x80a27072: "mothead\\movelist\\snk.mvl",
-  0x824a9b48: "mothead\\movelist\\crw.mvl",
-  0x84611ce: "mothead\\bin\\rbt.motbin",
-  0x8668c5a: "mothead\\movelist\\grl.mvl",
-  0x86c78da1: "mothead\\bin\\ttr.motbin",
-  0x87e1a47f: "mothead\\movelist\\lon.mvl",
-  0x892cc71b: "mothead\\movelist\\wlf.mvl",
-  0x8cb80b5c: "mothead\\movelist\\pgn.mvl",
-  0x8fdfa780: "mothead\\movelist\\der.mvl",
-  0x93139987: "mothead\\bin\\grl.motbin",
-  0x938a55a: "mothead\\movelist\\knk.mvl",
-  0x94a5679b: "mothead\\bin\\cat.motbin",
-  0x95d4468e: "mothead\\bin\\xxf.motbin",
-  0x95e8a763: "mothead\\movelist\\pig.mvl",
-  0x995acc7f: "mothead\\bin\\klw.motbin",
-  0x9bb0a44: "mothead\\bin\\tgr.motbin",
-  0xa051b11a: "mothead\\bin\\zbr.motbin",
-  0xa0768aa9: "mothead\\movelist\\bsn.mvl",
-  0xa2589b3f: "mothead\\movelist\\cml.mvl",
-  0xa2ebe46: "mothead\\movelist\\cmn.mvl",
-  0xab6b9b20: "mothead\\bin\\got.motbin",
-  0xad76b81f: "mothead\\bin\\der.motbin",
-  0xad231cf3: "mothead\\movelist\\dek.mvl",
-  0xb00353dc: "mothead\\bin\\xxc.motbin",
-  0xb352fa92: "mothead\\bin\\kmd.motbin",
-  0xb7d69f67: "mothead\\movelist\\ttr.mvl",
-  0xbd5e0b00: "mothead\\movelist\\hms.mvl",
-  0xc0fd1d4f: "mothead\\bin\\lzd.motbin",
-  0xc1e5c2e: "mothead\\bin\\hms.motbin",
-  0xc318c8eb: "mothead\\movelist\\rbt.mvl",
-  0xc5276083: "mothead\\bin\\xxa.motbin",
-  0xc6cf14ee: "mothead\\bin\\cbr.motbin",
-  0xc6f7d2f8: "mothead\\movelist\\swl.mvl",
-  0xcb1667b5: "mothead\\movelist\\mnt.mvl",
-  0xd1ab3a37: "mothead\\movelist\\aml.mvl",
-  0xd268df17: "mothead\\movelist\\kgr.mvl",
-  0xd73dee27: "mothead\\bin\\xxg.motbin",
-  0xd9ee9c6c: "mothead\\movelist\\zbr.mvl",
-  0xdc299b55: "mothead\\bin\\dog.motbin",
-  0xe19e8462: "mothead\\movelist\\ant.mvl",
-  0xe3b6ee56: "mothead\\movelist\\tgr.mvl",
-  0xe95a71a2: "mothead\\movelist\\kal.mvl",
-  0xecb742fa: "mothead\\movelist\\swl.mvl",
-  0xed17c2aa: "mothead\\bin\\swl.motbin",
-  0xef9257e: "mothead\\bin\\ant.motbin",
-  0xf6d9a89a: "mothead\\bin\\kal.motbin",
-  0xf98b9c38: "mothead\\bin\\knk.motbin",
-  0xfa8c9ae2: "mothead\\bin\\jly.motbin",
-  0xfc909b36: "mothead\\movelist\\grf.mvl",
-  0xfcad16ad: "mothead\\bin\\lon.motbin",
-  0xfcc8348: "mothead\\bin\\xxb.motbin",
-  0xfede5925: "mothead\\movelist\\kmd.mvl",
-};
-
 const print = console.log;
 
 /**
@@ -146,10 +50,12 @@ const toBytes = (bytes) =>
 /**
  * @param {Uint8Array} uint8array
  */
-function checksum8Additive(uint8array) {
+function checksum8Additive(uint8array, size) {
   let sum = 0;
-  for (let i = 0; i < uint8array.length; i++) {
-    sum = (sum + uint8array[i]) & 0xff; // wrap at 8 bits
+  for (let i = 0; i < size; i++) {
+    // Use 0 if index is beyond the array length
+    let value = i < uint8array.length ? uint8array[i] : 0;
+    sum = (sum + value) & 0xff; // wrap at 8 bits
   }
   return sum;
 }
@@ -226,7 +132,24 @@ function verifyChecksum(buffer, targetChecksum) {
   return +checksum === +targetChecksum;
 }
 
+function readMapping() {
+  try {
+    const buffer = readFileSync("./tkdata_mapping.txt", "utf-8");
+    const lines = buffer.trim().split("\n").filter(Boolean);
+    return lines.reduce((obj, line) => {
+      const [hash, name] = line.trim().split(":");
+      obj[+hash.trim()] = name.trim();
+      return obj;
+    }, {});
+  } catch {
+    return {}; 
+  }
+
+}
+
 async function main() {
+  const mapping = readMapping();
+
   const stream = readFileSync(PATH);
   const reader = new BinaryFileReader(stream.buffer);
 
@@ -267,7 +190,8 @@ async function main() {
   const tocOffset = Buffer.from(footerBytes.buffer).readInt32LE(0x18);
   const compressedTocSize = Buffer.from(footerBytes.buffer).readInt32LE(0x20);
   const uncompressedTocSize = Buffer.from(footerBytes.buffer).readInt32LE(0x28);
-  const someOtherOffset = Buffer.from(footerBytes.buffer).readInt32LE(0x38);
+  const contentOffset = Buffer.from(footerBytes.buffer).readInt32LE(0x30);
+  const contentSize = Buffer.from(footerBytes.buffer).readInt32LE(0x38);
 
   print("FileSizeInBytes         ", hex(reader.getSize()));
   print("decryptionFlag:         ", hex(decryptionFlag, 2));
@@ -277,7 +201,8 @@ async function main() {
   print("tocOffset:              ", hex(tocOffset, 8));
   print("compressedTocSize:      ", hex(compressedTocSize, 8));
   print("uncompressedTocSize:    ", hex(uncompressedTocSize, 8));
-  print("someOtherOffset:        ", hex(someOtherOffset, 8));
+  print("contentOffset:          ", hex(contentOffset, 8));
+  print("contentSize:            ", hex(contentSize, 8));
 
   // Read TOC using Footer
   let tocContent = reader.readArrayOfBytes(compressedTocSize, tocOffset);
@@ -285,13 +210,12 @@ async function main() {
     return print("TOC Byte Length invalid");
   }
 
-  if (decryptionFlag) {
-    tocContent = aes256EcbDecrypt(tocContent, DECRYPTION_KEY);
+  tocContent = aes256EcbDecrypt(tocContent, DECRYPTION_KEY);
 
-    // print("checksum8Additive:", hex(checksum8Additive(tocContent), 2))
-    // if (checksum8Additive(tocContent) !== decryptionChecksum) {
-    //   return print("TOC Decryption Checksum Failed");
-    // }
+  const tocChkSum = checksum8Additive(tocContent, compressedTocSize);
+  print("tocCheckSum:", hex(tocChkSum, 2))
+  if (tocChkSum !== decryptionChecksum) {
+    return print("TOC Decryption Checksum Failed");
   }
 
   // Decompress Bytes
@@ -312,12 +236,6 @@ async function main() {
 
   print("Decompressed length:", tocContent.length);
 
-  // <80 05 db 24 49 00 9d ef fc 04 49 88 f6 ae bf 2e>
-  // decrypted: <9d ca 07>
-  // const other = reader.readArrayOfBytes(0x10, someOtherOffset);
-  // print(toBytes(other))
-  // print(hex(readInt(aes256EcbDecrypt(other, DECRYPTION_KEY), 3)))
-
   // Reading TOC
   const tocSig = readReverseSignature(tocContent);
   if (tocSig !== "BNBinLst") {
@@ -334,16 +252,16 @@ async function main() {
     const decryptFlag = readInt(tocContent, entryOffset + 0x8, 1);
     // const fileDcryptChksum = readUInt(tocContent, entryOffset + 0xA, 1);
     const fileDcryptChksum = Buffer.from(tocContent).readUInt8(
-      entryOffset + 0xb
+      entryOffset + 0xa
     );
     const fileDecompressChcksum = Buffer.from(tocContent).readUInt8(
-      entryOffset + 0xa
+      entryOffset + 0xb
     );
     const fileHash = readUInt(tocContent, entryOffset + 0x10);
     const fileOffset = readInt(tocContent, entryOffset + 0x18);
     const fileSize = readInt(tocContent, entryOffset + 0x20);
     const uncompressedFileSize = readInt(tocContent, entryOffset + 0x28);
-    const globalOffset = 0x10 + fileOffset;
+    const globalOffset = contentOffset + fileOffset;
     const printValues = [
       `Entry: ${(i + 1).toString().padStart(3, " ")}:`,
       `Addr: ${hex(globalOffset)}.`,
@@ -361,15 +279,21 @@ async function main() {
 
     const pn = (x) => hex(x, 2);
 
-    // printValues.push(`RAW CHK: ${pn(checksum8Additive(fileBuffer))}`)
-
     // Decrypt file, no matter what
     fileBuffer = aes256EcbDecrypt(fileBuffer, DECRYPTION_KEY);
 
-    // printValues.push(`CHK: ${pn(checksum8Additive(fileBuffer))}`)
+    // if (fileBuffer.byteLength !== fileSize) {
+    //   printValues.push(`Extraction Failed: mismatched size. ${hex(fileBuffer.byteLength, 1)} <=> ${hex(fileSize, 1)}`);
+    //   print(printValues.join(" "));
+    //   continue;
+    // }
 
-    const chk1 = checksum8Additive(fileBuffer);
-    if (!verifyChecksum(fileBuffer, fileDcryptChksum) && !decryptFlag) {
+    const chk1 = checksum8Additive(fileBuffer, fileSize);
+
+    printValues.push(`CHK: ${pn(chk1)}`);
+
+    // if (!verifyChecksum(fileBuffer, fileDcryptChksum) && !decryptFlag) {
+    if (!verifyChecksum(fileBuffer, fileDcryptChksum)) {
       printValues.push(
         `Extraction Failed: mismatched checksum. ${pn(
           fileDcryptChksum
@@ -384,7 +308,6 @@ async function main() {
       fileBuffer = await decompress(Buffer.from(fileBuffer));
 
       if (fileBuffer.length !== uncompressedFileSize && decryptFlag) {
-        // print(`Entry ${i + 1} uncompressed file size mismatch`);
         printValues.push(`Extraction Failed: uncompressed file size mismatch`);
         print(printValues.join(" "));
         continue;
@@ -401,9 +324,6 @@ async function main() {
     );
 
     print(printValues.join(" "));
-
-    // break; // temporary
-    // if (i === 125) break; // temporary
   }
 
   print("Extracted all files from TkData.bin");
