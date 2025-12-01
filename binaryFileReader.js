@@ -26,6 +26,10 @@ class BinaryFileReader {
     return this.pointer
   }
 
+  getSize() {
+    return this.buffer.byteLength;
+  }
+
   getRemainingBytes() {
     return this.buffer.byteLength - this.pointer
   }
