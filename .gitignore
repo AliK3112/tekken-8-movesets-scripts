@@ -8,3 +8,4 @@ cpp/*.exe
 test*.js
 test*.py
 experiment/*
+Binary/
