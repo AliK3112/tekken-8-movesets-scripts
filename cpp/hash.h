@@ -350,3 +350,11 @@ int64_t ComputeKamuiHash12To24(uint8_t *a1,
          13));
   return v5 ^ HIWORD(v5);
 }
+
+int64_t ComputeKamuiHash(const char *a1, uint64_t length) {
+    return ComputeKamuiHash((uint8_t*)a1, length);
+}
+
+int64_t ComputeKamuiHash(std::string a1, uint64_t length) {
+    return ComputeKamuiHash((uint8_t*)a1.c_str(), length);
+}
