@@ -5,8 +5,8 @@
 using namespace std;
 
 GameClass Game;
-uintptr_t PLAYER_STRUCT_BASE = 0x09B15B38;
-uintptr_t MOVESET_OFFSET = 0x3308;
+uintptr_t PLAYER_STRUCT_BASE = 0x9B56AE0;
+uintptr_t MOVESET_OFFSET = 0x3898;
 
 uintptr_t getPlayerAddress(int side);
 uintptr_t getMovesetAddress(uintptr_t player);

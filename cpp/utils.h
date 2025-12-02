@@ -119,6 +119,7 @@ std::string getCharCode(int charId)
   case 37: return "kgr";
   case 38: return "tgr";
   case 39: return "knk";
+  case 40: return "wkz";
   case 116: return "dek";
   case 117: return "xxa";
   case 118: return "xxb";
@@ -172,8 +173,8 @@ std::string getCharacterName(int id) {
     case 36: return "CLIVE";
     case 37: return "ANNA";
     case 38: return "FAHKUMRAM";
-    case 39: return "ARMOR KING";
-    case 40: return "MIARY ZO";
+    case 39: return "ARMOR_KING";
+    case 40: return "MIARY_ZO";
     case 116: return "DUMMY";
     case 117: return "ANGEL_JIN";
     case 118: return "TRUE_DEVIL_KAZUYA";
