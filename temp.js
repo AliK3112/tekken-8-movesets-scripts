@@ -1,5 +1,5 @@
 const fs = require("fs");
-const hash = require("./kamui-hash/build/Release/kamuihash.node");
+const { computeKamuiHash } = require("./kamuihash");
 const BinaryFileReader = require("./binaryFileReader");
 const { readMovesList } = require("./utils");
 
@@ -38,9 +38,7 @@ const FILE = "zbr";
 (() => {
   // restoreNames();
   // return;
-  const buffer = fs.readFileSync(
-    `./Binary_expanded/mothead/bin/${FILE}.motbin`,
-  );
+  const buffer = fs.readFileSync(`./Binary/mothead/bin/${FILE}.motbin`);
   const reader = new BinaryFileReader(buffer.buffer);
 
   const dict = require("./name_keys.json");
@@ -70,7 +68,7 @@ const FILE = "zbr";
     // storyName = "story_" + move.name;
     // storyName = String(move.name).replace("Jz_", "Act15_");
     // storyName = String(move.name).replace("3", "4");
-    const storyHash = Number(hash.computeKamuiHash(storyName));
+    const storyHash = Number(computeKamuiHash(storyName));
 
     // if (move.name === "Kz_4rprp") {
     //   print("~FOUND!");

@@ -1,5 +1,5 @@
 const fs = require("fs");
-var Hash = require("./kamui-hash/build/Release/kamuihash.node");
+const { computeKamuiHash } = require("./kamuihash");
 
 function loadNameKeys() {
   try {
@@ -19,7 +19,7 @@ const NAME_KEYS = loadNameKeys();
 
 const print = console.log;
 var hex = (x) => "0x" + x.toString(16);
-var hash = (value) => hex(Hash.computeKamuiHash(value));
+var hash = (value) => hex(computeKamuiHash(value));
 var array = [];
 const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 // const chars = "0123456789";
@@ -173,7 +173,7 @@ const readTextFile = (path) => {
 function useCandidatesToDeduce(target) {
   let found = false;
   // const array = require("/Users/qbatch/Downloads/0x8fec784e.json");
-  const array = readTextFile("0x7a562929_.txt");
+  const array = readTextFile("hashes.txt");
   for (const candidate of array) {
     // console.log("Checking %s", candidate);
     // for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
