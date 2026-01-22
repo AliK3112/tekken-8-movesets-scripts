@@ -217,3 +217,10 @@ function computeKamuiHash(str) {
 
 module.exports = { computeKamuiHash };
 
+if (require.main === module) {
+    const arg = process.argv[2];
+    if (arg) {
+        console.log("0x" + computeKamuiHash(arg).toString(16));
+    }
+}
+
