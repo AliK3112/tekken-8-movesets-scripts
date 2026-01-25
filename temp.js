@@ -1,5 +1,5 @@
 const fs = require("fs");
-const { computeKamuiHash } = require("./kamuihash");
+const { computeKamuiHash } = require("./hash");
 const BinaryFileReader = require("./binaryFileReader");
 const { readMovesList } = require("./utils");
 
@@ -14,12 +14,18 @@ const readTxt = (path) => {
 };
 
 const restoreNames = () => {
-  const folderPath = "/Users/qbatch/Downloads/t8_2_08_01";
-  const files = fs.readdirSync(folderPath);
+  const folderPath = "";
+  const files = fs.readdirSync(folderPath).filter((x) => x.endsWith(".json"));
   const nameKeys = require("./name_keys.json");
   for (const file of files) {
     const filePath = `${folderPath}/${file}`;
-    const moveset = require(filePath);
+    const json = fs.readFileSync(filePath, "utf8");
+    const moveset = JSON.parse(json, (_, v) => {
+      if (typeof v === "number" && !Number.isSafeInteger(v)) {
+        return BigInt(v);
+      }
+      return v;
+    });
     print(moveset.tekken_character_name);
     moveset.moves.forEach((move, i) => {
       const nameKey = move.name_key;
@@ -29,11 +35,18 @@ const restoreNames = () => {
         move.name = nameKeys[nameKey];
       }
     });
-    fs.writeFileSync(filePath, JSON.stringify(moveset, null, 2));
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify(
+        moveset,
+        (_, v) => (typeof v === "bigint" ? v.toString() : v),
+        2,
+      ),
+    );
   }
 };
 
-const FILE = "zbr";
+const FILE = "cml";
 
 (() => {
   // restoreNames();
@@ -64,7 +77,7 @@ const FILE = "zbr";
     // storyName = "" + move.name + "_cancel";
     // storyName = "" + move.name + "_cancel";
     // storyName = "" + move.name + "_miss";
-    storyName = "" + move.name + "_sentai";
+    storyName = "" + move.name + "mis";
     // storyName = "story_" + move.name;
     // storyName = String(move.name).replace("Jz_", "Act15_");
     // storyName = String(move.name).replace("3", "4");

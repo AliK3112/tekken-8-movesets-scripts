@@ -1,5 +1,5 @@
 const fs = require("fs");
-const { computeKamuiHash } = require("./kamuihash");
+const { computeKamuiHash } = require("./hash");
 
 function loadNameKeys() {
   try {
@@ -13,8 +13,8 @@ function loadNameKeys() {
 // 1 = useBaseAndCandidatesToDeduce
 // 2 = useBaseToDeduce
 const MODE = 0;
-const BASE = "sDm_munetuki";
-const SUFFIX_LENGTH = 2;
+const BASE = "sDm_grog_";
+const SUFFIX_LENGTH = 1;
 const NAME_KEYS = loadNameKeys();
 
 const print = console.log;
@@ -161,14 +161,12 @@ const printDramaNames = () => {
   return;
 };
 
-const readTextFile = (path) => {
-  const lines = fs
+const readTextFile = (path) =>
+  fs
     .readFileSync(path, "utf-8")
-    .split("\n")
-    .filter(Boolean)
-    .map((x) => x.replace("\r", ""));
-  return lines;
-};
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^"\d+"\s*:\s*"(.+?)",?$/, "$1"))
+    .filter(Boolean);
 
 function useCandidatesToDeduce(target) {
   let found = false;
@@ -176,38 +174,37 @@ function useCandidatesToDeduce(target) {
   const array = readTextFile("hashes.txt");
   for (const candidate of array) {
     // console.log("Checking %s", candidate);
-    // for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
-    //   let input = candidate + suffix;
-    //   // input = input.replace("sDm_", "aDw_");
-    //   const hashed = hash(input);
-    //   if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
-    //     print(`"${+hashed}": "${input}",`);
-    //     found = true;
-    //     return true;
-    //   }
+    for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
+      let input = candidate + suffix;
+      // let input = candidate.slice(0, -4);
+      // input = input.replace("_tw", "");
+      // input = input + suffix + "_tw";
+      // console.log("Checking %s", input);
+      const hashed = hash(input);
+      if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
+        print(`"${+hashed}": "${input}",`);
+        found = true;
+        return true;
+      }
+    }
+    // let input = candidate;
+    // // let input = candidate + "_story";
+    // // input = input.replace("LP", "RP");
+    // // input = input.replace("grl_", "got_");
+    // // console.log("Checking %s", input);
+    // const hashed = hash(input);
+    // if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
+    //   print(`"${+hashed}": "${input}",`);
+    //   found = true;
+    //   break;
     // }
-    let input = candidate;
-    if (input.endsWith("_L")) {
-      input = input.replace("_L", "_R");
-    } else if (input.endsWith("_R")) {
-      input = input.replace("_R", "_L");
-    }
-    // let input = candidate + "_story";
-    // input = input.replace("_n", "_y");
-    // input = input.replace("grl_", "got_");
-    // console.log("Checking %s", input);
-    const hashed = hash(input);
-    if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
-      print(`"${+hashed}": "${input}",`);
-      found = true;
-      break;
-    }
   }
   return found;
 }
 
 function useBaseAndCandidatesToDeduce(base, target) {
   let found = false;
+  const array = readTextFile("hashes.txt");
   for (const candidate of array) {
     const input = base + candidate;
     const hashed = hash(input);
@@ -224,8 +221,8 @@ function useBaseAndCandidatesToDeduce(base, target) {
 function useBaseToDeduce(base, target) {
   let found = false;
   for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
-    // const input = base + suffix;
-    const input = base + suffix + "_DMGRATE";
+    const input = base + suffix;
+    // const input = base + suffix + "_DMGRATE";
     const hashed = hash(input);
     if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
       // if (target.includes(+hashed)) {
@@ -240,7 +237,7 @@ function useBaseToDeduce(base, target) {
   // printDramaNames();
   // return;
 
-  const target = [0x14ba737d];
+  const target = [0xd84eab40];
 
   let found = false;
   switch (MODE) {

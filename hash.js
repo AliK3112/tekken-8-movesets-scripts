@@ -1,3 +1,5 @@
+const fs = require("fs");
+
 const C1 = 0xCC9E2D51;
 const C2 = 0x1B873593;
 
@@ -219,8 +221,20 @@ module.exports = { computeKamuiHash };
 
 if (require.main === module) {
     const arg = process.argv[2];
+    const addToNameKeys = process.argv.includes("--add");
     if (arg) {
-        console.log("0x" + computeKamuiHash(arg).toString(16));
+        const hash = computeKamuiHash(arg);
+        console.log("0x" + hash.toString(16).padStart(8, "0"));
+        if (addToNameKeys) {
+            const nameKeys = require("./name_keys.json");
+            if (nameKeys[hash]) {
+                console.log("A Key-Value pair already exists: %s", nameKeys[hash]);
+            } else {
+                console.log("Adding to name keys");
+                nameKeys[hash] = arg;
+                fs.writeFileSync("./name_keys.json", JSON.stringify(nameKeys, null, 2));
+            }
+        }
     }
 }
 
