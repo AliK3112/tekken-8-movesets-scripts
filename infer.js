@@ -13,12 +13,15 @@ function loadNameKeys() {
 // 1 = useBaseAndCandidatesToDeduce
 // 2 = useBaseToDeduce
 const MODE = 0;
-const BASE = "sDm_grog_";
-const SUFFIX_LENGTH = 1;
+const BASE = "Wkz_8RK";
+const SUFFIX_LENGTH = 2;
 const NAME_KEYS = loadNameKeys();
+const TARGET = [0xa9411a7a];
 
 const print = console.log;
 var hex = (x) => "0x" + x.toString(16);
+var getHash = (value) => computeKamuiHash(value);
+var getHashHex = (value) => hex(computeKamuiHash(value));
 var hash = (value) => hex(computeKamuiHash(value));
 var array = [];
 const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
@@ -36,9 +39,6 @@ function* generateSuffixes(chars, length, prefix = "") {
 }
 
 const printDramaNames = () => {
-  // Example: length of suffix is configurable
-  const base = "sDm_tuki_hi";
-
   const codes = [
     "aml",
     "ant",
@@ -168,66 +168,68 @@ const readTextFile = (path) =>
     .map((line) => line.trim().replace(/^"\d+"\s*:\s*"(.+?)",?$/, "$1"))
     .filter(Boolean);
 
-function useCandidatesToDeduce(target) {
+function printIfFound(hashed, input, dontCheckNameKeys = false) {
+  if (TARGET.includes(hashed) && (!NAME_KEYS[hashed] || dontCheckNameKeys)) {
+    print(`"${hashed}": "${input}",`);
+    return true;
+  }
+  return false;
+}
+
+function useCandidatesToDeduce(generate = false) {
   let found = false;
-  // const array = require("/Users/qbatch/Downloads/0x8fec784e.json");
+  let input = "";
   const array = readTextFile("hashes.txt");
   for (const candidate of array) {
     // console.log("Checking %s", candidate);
-    for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
-      let input = candidate + suffix;
-      // let input = candidate.slice(0, -4);
-      // input = input.replace("_tw", "");
-      // input = input + suffix + "_tw";
-      // console.log("Checking %s", input);
-      const hashed = hash(input);
-      if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
-        print(`"${+hashed}": "${input}",`);
+    if (generate) {
+      for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
+        input = candidate + suffix;
+        // console.log("Checking %s", input);
+        const hashed = getHash(input);
+        if (printIfFound(hashed, input)) {
+          found = true; // keeping this statement in case I want to comment the return
+          return true;
+        }
+      }
+    } else {
+      input = candidate + "RK";
+      // input = input.replace("_LP", "_RP");
+      const hashed = getHash(input);
+      if (printIfFound(hashed, input)) {
         found = true;
         return true;
       }
     }
-    // let input = candidate;
-    // // let input = candidate + "_story";
-    // // input = input.replace("LP", "RP");
-    // // input = input.replace("grl_", "got_");
-    // // console.log("Checking %s", input);
-    // const hashed = hash(input);
-    // if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
-    //   print(`"${+hashed}": "${input}",`);
-    //   found = true;
-    //   break;
-    // }
   }
   return found;
 }
 
-function useBaseAndCandidatesToDeduce(base, target) {
+function useBaseAndCandidatesToDeduce() {
   let found = false;
   const array = readTextFile("hashes.txt");
+  let input = "";
   for (const candidate of array) {
-    const input = base + candidate;
-    const hashed = hash(input);
-    // print(`Checking ${input} -> ${hashed}`);
-    // if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
-    if (target.includes(+hashed)) {
-      print(`"${+hashed}": "${input}",`);
+    input = BASE + candidate;
+    const hashed = getHash(input);
+    print(`Checking ${input} -> ${hex(hashed)}`);
+    if (printIfFound(hashed, input)) {
       found = true;
+      break;
     }
   }
   return found;
 }
 
-function useBaseToDeduce(base, target) {
+function useBaseToDeduce(suffix = "") {
   let found = false;
-  for (const suffix of generateSuffixes(chars, SUFFIX_LENGTH)) {
-    const input = base + suffix;
-    // const input = base + suffix + "_DMGRATE";
-    const hashed = hash(input);
-    if (target.includes(+hashed) && !NAME_KEYS[+hashed]) {
-      // if (target.includes(+hashed)) {
-      print(`"${+hashed}": "${input}",`);
+  let input = "";
+  for (const generated of generateSuffixes(chars, SUFFIX_LENGTH)) {
+    input = BASE + generated + suffix;
+    const hashed = getHash(input);
+    if (printIfFound(hashed, input)) {
       found = true;
+      break;
     }
   }
   return found;
@@ -237,18 +239,16 @@ function useBaseToDeduce(base, target) {
   // printDramaNames();
   // return;
 
-  const target = [0xd84eab40];
-
   let found = false;
   switch (MODE) {
     case 0:
-      found = useCandidatesToDeduce(target);
+      found = useCandidatesToDeduce(0);
       break;
     case 1:
-      found = useBaseAndCandidatesToDeduce(BASE, target);
+      found = useBaseAndCandidatesToDeduce();
       break;
     case 2:
-      found = useBaseToDeduce(BASE, target);
+      found = useBaseToDeduce();
       break;
     default:
       break;
