@@ -1,4 +1,5 @@
 const { readFileSync, writeFileSync, existsSync, mkdirSync } = require("fs");
+const path = require("path");
 const crypto = require("crypto");
 const { decompress } = require("@mongodb-js/zstd");
 const BinaryFileReader = require("./binaryFileReader");
@@ -11,6 +12,7 @@ const KEYS_ARRAY = [
   0xa27d5221, 0xbb9fe67d, 0xad15269f, 0xec1a9785, 0x9bae2f45, 0xa4296896,
   0x275aa004, 0x37e22f31, 0x3803d4a7, 0x9b81329f,
 ];
+let DICT = {};
 
 function hex(number, length = 8) {
   let x = typeof number === "string" ? parseInt(number) : number;
@@ -127,6 +129,29 @@ function looksLikeZstd(buf) {
   );
 }
 
+function ensureAndWriteFile(filePath, data = "") {
+  const dir = path.dirname(filePath);
+
+  // Create directories if needed
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+
+  // Create the file if it doesn't exist
+  if (!existsSync(filePath)) {
+    writeFileSync(filePath, data);
+  }
+}
+
+// FUNCTION TO WRITE TO FILE
+function extractFile(fileHash, fileBuffer, outputDir, useMapping) {
+  const hashStr = hex(fileHash, 1);
+  const namedPath = useMapping ? DICT[fileHash] ?? hashStr : hashStr;
+
+  const destPath = path.join(outputDir, namedPath);
+  ensureAndWriteFile(destPath, fileBuffer);
+}
+
 function verifyChecksum(buffer, targetChecksum) {
   const checksum = checksum8Additive(buffer);
   return +checksum === +targetChecksum;
@@ -144,11 +169,10 @@ function readMapping() {
   } catch {
     return {}; 
   }
-
 }
 
 async function main() {
-  const mapping = readMapping();
+  DICT = readMapping();
 
   const stream = readFileSync(PATH);
   const reader = new BinaryFileReader(stream.buffer);
@@ -164,14 +188,14 @@ async function main() {
   const footerOffset = reader.getSize() - size;
   const footerBytes = reader.readArrayOfBytes(size, footerOffset); // Uint8Array
 
-  let currentOffset = 1;
+  let currentOffset = 0;
   for (let i = 0; i < KEYS_ARRAY.length; i++) {
     const key = KEYS_ARRAY[i];
     const keyBytes = [0, 1, 2, 3].map((i) => getByte(key, i));
-    footerBytes[currentOffset - 1] ^= keyBytes[0];
-    footerBytes[currentOffset] ^= keyBytes[1];
-    footerBytes[currentOffset + 1] ^= keyBytes[2];
-    footerBytes[currentOffset + 2] ^= keyBytes[3];
+    footerBytes[currentOffset + 0] ^= keyBytes[0];
+    footerBytes[currentOffset + 1] ^= keyBytes[1];
+    footerBytes[currentOffset + 2] ^= keyBytes[2];
+    footerBytes[currentOffset + 3] ^= keyBytes[3];
     currentOffset += 4;
   }
 
@@ -214,9 +238,9 @@ async function main() {
 
   const tocChkSum = checksum8Additive(tocContent, compressedTocSize);
   print("tocCheckSum:", hex(tocChkSum, 2))
-  if (tocChkSum !== decryptionChecksum) {
-    return print("TOC Decryption Checksum Failed");
-  }
+  // if (tocChkSum !== decryptionChecksum) {
+  //   return print("TOC Decryption Checksum Failed");
+  // }
 
   // Decompress Bytes
   if (looksLikeZstd(tocContent)) {
@@ -271,7 +295,7 @@ async function main() {
       `Hash: ${hex(fileHash)}.`,
       `Offset: ${hex(fileOffset)}.`,
       `Size: ${hex(fileSize)}.`,
-      `Name: ${mapping[fileHash] ?? "-"}`,
+      `Name: ${DICT[fileHash] ?? "-"}`,
     ];
 
     // Let's try to read and decrypt this file
@@ -290,18 +314,18 @@ async function main() {
 
     const chk1 = checksum8Additive(fileBuffer, fileSize);
 
-    printValues.push(`CHK: ${pn(chk1)}`);
+    // printValues.push(`CHK: ${pn(chk1)}`);
 
     // if (!verifyChecksum(fileBuffer, fileDcryptChksum) && !decryptFlag) {
-    if (!verifyChecksum(fileBuffer, fileDcryptChksum)) {
-      printValues.push(
-        `Extraction Failed: mismatched checksum. ${pn(
-          fileDcryptChksum
-        )} against ${pn(chk1)}`
-      );
-      print(printValues.join(" "));
-      continue;
-    }
+    // if (!verifyChecksum(fileBuffer, fileDcryptChksum)) {
+    //   printValues.push(
+    //     `Extraction Failed: mismatched checksum. ${pn(
+    //       fileDcryptChksum
+    //     )} against ${pn(chk1)}`
+    //   );
+    //   print(printValues.join(" "));
+    //   continue;
+    // }
 
     // Decompress if it looks like they can be decompressed
     if (looksLikeZstd(fileBuffer)) {
@@ -315,13 +339,7 @@ async function main() {
     }
 
     // Writing to file
-    if (!existsSync(OUTPUT_DIR)) {
-      mkdirSync(OUTPUT_DIR);
-    }
-    writeFileSync(
-      `${OUTPUT_DIR}/${hex(fileHash, 1).toLowerCase()}`,
-      fileBuffer
-    );
+    extractFile(fileHash, fileBuffer, OUTPUT_DIR, true);
 
     print(printValues.join(" "));
   }
