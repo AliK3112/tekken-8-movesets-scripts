@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "@mongodb-js/zstd": "^7.0.0",
+    "crc-32": "^1.2.2",
     "frida": "^17.4.4",
     "lodash": "^4.17.21",
     "moment": "^2.30.1"

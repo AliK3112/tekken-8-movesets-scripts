@@ -1,7 +1,6 @@
 // This file converts a motbin bin to a JSON
 const crc32 = require("crc-32");
 const fs = require("fs");
-const hash = require("./kamui-hash/build/Release/kamuihash.node");
 const BinaryFileReader = require("./binaryFileReader");
 const { getCharacterName } = require("./utils");
 
@@ -765,7 +764,7 @@ function readAnimations(filePath, charCode) {
 }
 
 function main() {
-  const folderPath = "./Binary_expanded/mothead/bin";
+  const folderPath = "./Binary/mothead/bin";
   const files = fs
     .readdirSync(folderPath)
     .filter((file) => file.endsWith(".motbin") && !file.includes("ja4"));
