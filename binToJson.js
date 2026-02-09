@@ -1,574 +1,809 @@
+// This file converts a motbin bin to a JSON
+const crc32 = require("crc-32");
 const fs = require("fs");
-const moment = require("moment");
-const { getCharacterName: getCharacterName2 } = require("./utils");
+const hash = require("./kamui-hash/build/Release/kamuihash.node");
+const BinaryFileReader = require("./binaryFileReader");
+const { getCharacterName } = require("./utils");
 
-// eslint-disable-next-line no-unused-vars
-const to2ByteSigned = num => (num << 16) >> 16;
+const hex = (value, len = 8) => "0x" + value.toString(16).padStart(len, "0");
+const print = console.log;
+const readLong = (offset, ctx) => Number(ctx.readUInt64(offset));
+const getByte = (value, byteNumber) => (value >>> (byteNumber * 8)) & 0xff;
 
-const t8StructSizes = {
-  pushbacks: 0x10,
-  pushback_extradata: 0x2,
-  requirements: 0x14,
-  cancel_extradata: 0x4,
-  cancels: 0x28,
-  group_cancels: 0x28,
-  reactions: 0x70,
-  hit_conditions: 0x18,
-  extra_move_properties: 0x28,
-  move_start_props: 0x20,
-  move_end_props: 0x20,
-  moves: 0x448,
-  voiceclips: 0xc,
-  input_extradata: 0x8,
-  input_sequences: 0x10,
-  projectiles: 0xd8,
-  throw_extras: 0xc,
-  throws: 0x10,
-  unknown_parryrelated_list: 0x4,
-  dialogues: 0x18,
+// ========================== Constants ==================================
+
+const XOR_KEYS = [
+  0x964f5b9e, 0xd88448a2, 0xa84b71e0, 0xa27d5221, 0x9b81329f, 0xadfb76c8,
+  0x7def1f1c, 0x7ee2bc2c,
+];
+const NAME_KEYS = (() => {
+  try {
+    return require("./name_keys.json");
+  } catch {
+    return {};
+  }
+})();
+const N_ALIASES = 60;
+const N_UNK_ALIASES = 36;
+const BASE = 0x318;
+const REQ_EOL = 1100;
+const REACTION_KEYS = [
+  "front_direction",
+  "back_direction",
+  "left_side_direction",
+  "right_side_direction",
+  "front_counterhit_direction",
+  "downed_direction",
+  "front_rotation",
+  "back_rotation",
+  "left_side_rotation",
+  "right_side_rotation",
+  "vertical_pushback", // front_counterhit_rotation
+  "downed_rotation",
+  "standing",
+  "ch",
+  "crouch",
+  "crouch_ch",
+  "left_side",
+  "left_side_crouch",
+  "right_side",
+  "right_side_crouch",
+  "back",
+  "back_crouch",
+  "block",
+  "crouch_block",
+  "wallslump",
+  "downed",
+];
+const FLAT_ARRAY_KEYS = [
+  "cancel_extradata",
+  "input_extradata",
+  "pushback_extras",
+  "parry_related",
+];
+
+const decryptBytes = (moveBytes, attributeOffset, moveIdx) => {
+  let currentOffset = attributeOffset;
+  for (let j = 0; j < XOR_KEYS.length; j++) {
+    const key = XOR_KEYS[j];
+    for (let k = 0; k < 4; k++) {
+      moveBytes[currentOffset + k] ^= getByte(key, k);
+    }
+    currentOffset += 4;
+  }
+  return Buffer.from(moveBytes).readUInt32LE(
+    attributeOffset + 4 * (moveIdx % 8),
+  );
 };
 
-function getInitialValues() {
+// ========================== Structs ==========================
+const TK_CharId = (c) => ({
+  value: (c.readInt32(0x160) - 1) / 0xffff,
+  size: 4,
+});
+
+const TK_Reaction = (ctx, pos) => {
+  let off = pos;
+  const reaction = {};
+
+  // 7 × uint64 pushbacks
+  reaction.pushback_indexes = Array.from({ length: 7 }, () => {
+    const v = Number(ctx.readUInt64(off));
+    off += 8;
+    return v;
+  });
+
+  // 2-byte fields
+  for (const key of REACTION_KEYS) {
+    reaction[key] = ctx.readUInt16(off);
+    off += 2;
+  }
+
+  // skip trailing 4 bytes (_unk1 + _unk2)
+  ctx.readUInt16(off);
+  off += 2;
+  ctx.readUInt16(off);
+  off += 2;
+
+  return { value: reaction, size: 0x70 };
+};
+
+const TK_Requirment = (ctx, pos) => ({
+  value: {
+    req: ctx.readUInt32(pos),
+    param: ctx.readUInt32(pos + 4),
+    param2: ctx.readUInt32(pos + 8),
+    param3: ctx.readUInt32(pos + 12),
+    param4: ctx.readUInt32(pos + 16),
+  },
+  size: 20,
+});
+
+const TK_HitCondition = (ctx, pos) => ({
+  value: {
+    requirement_idx: readLong(pos, ctx),
+    damage: readLong(pos + 8, ctx),
+    reaction_list_idx: readLong(pos + 16, ctx),
+  },
+  size: 24,
+});
+
+const TK_Projectile = (ctx, pos) => ({
+  value: {
+    // u1[35] → 35 × uint32 at 0x00
+    u1: Array.from({ length: 35 }, (_, i) => ctx.readUInt32(pos + i * 4)),
+
+    // TK__HitCondition* → pointer at 0x90
+    hit_condition_idx: Number(ctx.readUInt64(pos + 0x90)),
+
+    // TK__Cancel* → pointer at 0x98
+    cancel_idx: Number(ctx.readUInt64(pos + 0x98)),
+
+    // u2[16] → 16 × uint32 at 0xA0
+    u2: Array.from({ length: 16 }, (_, i) =>
+      ctx.readUInt32(pos + 0xa0 + i * 4),
+    ),
+  },
+  size: 0xe0,
+});
+
+const TK_Pushback = (ctx, pos) => ({
+  value: {
+    val1: ctx.readUInt16(pos),
+    val2: ctx.readUInt16(pos + 2),
+    val3: ctx.readUInt32(pos + 4),
+    pushbackextra_idx: Number(ctx.readUInt64(pos + 8)), // pointer
+  },
+  size: 0x10,
+});
+
+const TK_Displacement = (ctx, pos) => ({
+  value: ctx.readUInt16(pos),
+  size: 2,
+});
+
+const TK_Cancel = (ctx, pos) => {
+  const command = ctx.readUInt64(pos);
+  const requirementIdx = readLong(pos + 8, ctx);
+  const extradataIdx = readLong(pos + 16, ctx);
+  const start = ctx.readInt32(pos + 24);
+  const end = ctx.readInt32(pos + 28);
+  const frame = ctx.readInt32(pos + 32);
+  const moveId = ctx.readUInt16(pos + 36);
+  const option = ctx.readUInt16(pos + 38);
+
   return {
-    original_hash: "abc123", // random
-    last_calculated_hash: "abc123",
-    export_version: "1.0.1",
-    version: "T8", // todo
-    character_id: -1, // todo
-    extraction_date: moment().format(),
+    value: {
+      command,
+      extradata_idx: extradataIdx,
+      requirement_idx: requirementIdx,
+      frame_window_start: start,
+      frame_window_end: end,
+      starting_frame: frame,
+      move_id: moveId,
+      cancel_option: option,
+    },
+    size: 40,
+  };
+};
+
+const TK_CancelFlags = (ctx, pos) => ({
+  value: ctx.readUInt32(pos),
+  size: 4,
+});
+
+const TK_TimedExtraprops = (ctx, pos) => {
+  const frame = ctx.readUInt32(pos);
+  const _0x4 = ctx.readUInt32(pos + 0x04);
+  const requirementIdx = Number(ctx.readUInt64(pos + 0x08)); // pointer
+  const prop = ctx.readUInt32(pos + 0x10);
+  const value1 = ctx.readUInt32(pos + 0x14);
+  const value2 = ctx.readUInt32(pos + 0x18);
+  const value3 = ctx.readUInt32(pos + 0x1c);
+  const value4 = ctx.readUInt32(pos + 0x20);
+  const value5 = ctx.readUInt32(pos + 0x24);
+  return {
+    value: {
+      id: prop,
+      type: frame,
+      requirement_idx: requirementIdx,
+      _0x4,
+      value: value1,
+      value2,
+      value3,
+      value4,
+      value5,
+    },
+    size: 40,
+  };
+};
+
+const TK_UntimedExtraprops = (ctx, pos) => {
+  const requirementIdx = Number(ctx.readUInt64(pos)); // pointer
+  const prop = ctx.readUInt32(pos + 0x8);
+  return {
+    value: {
+      id: prop,
+      requirement_idx: requirementIdx,
+      value: ctx.readUInt32(pos + 0xc),
+      value2: ctx.readUInt32(pos + 0x10),
+      value3: ctx.readUInt32(pos + 0x14),
+      value4: ctx.readUInt32(pos + 0x18),
+      value5: ctx.readUInt32(pos + 0x1c),
+    },
+    size: 32,
+  };
+};
+
+// TODO: Move
+const TK_Encrypted = (c, pos) => ({
+  value: {
+    value: c.readUInt64(pos),
+    key: c.readUInt64(pos + 0x8),
+  },
+  size: 0x10,
+});
+
+const TK_MoveHitbox = (c, pos) => ({
+  value: {
+    first_active_frame: c.readUInt32(pos + 0x0),
+    last_active_frame: c.readUInt32(pos + 0x4),
+    location: c.readUInt32(pos + 0x8),
+    // related_floats: Array.from({ length: 9 }, (_, i) =>
+    //   c.readFloat32(pos + 0xc + i * 4),
+    // ),
+    related_floats: Array.from({ length: 9 }, (_, i) =>
+      c.readUInt32(pos + 0xc + i * 4),
+    ),
+  },
+  size: 0x30, // 3*4 + 9*4
+});
+
+const TK_Move = (c, pos, moveIdx) => {
+  const readLong = (offset) => Number(c.readInt64(offset));
+
+  const bytes = c.readArrayOfBytes(0x448, pos);
+  const nameKey = decryptBytes(bytes, 0x0, moveIdx);
+  const animNameKey = decryptBytes(bytes, 0x20, moveIdx);
+  const hurtbox = decryptBytes(bytes, 0x58, moveIdx);
+  const hitLevel = decryptBytes(bytes, 0x78, moveIdx);
+  const ordinal1 = decryptBytes(bytes, 0xd0, moveIdx);
+  const ordinal2 = decryptBytes(bytes, 0xf0, moveIdx);
+
+  const name = NAME_KEYS[nameKey] ?? "move_" + moveIdx;
+  const animName = NAME_KEYS[animNameKey] ?? "anim_" + moveIdx;
+  // print(i, hex(nameKey), name);
+  const encKey = 0xedccfb96dca40fban;
+
+  const hitboxes = Array.from(
+    { length: 8 },
+    (_, i) => TK_MoveHitbox(c, pos + 0x160 + i * 0x30).value,
+  );
+
+  // TODO: Get Max Anim Length from the anmbin file
+
+  const hi = hitboxes[1].location & 0xffff;
+  const lo = hitboxes[0].location & 0xffff;
+  const hitboxLocation = (hi << 16) | lo;
+
+  const move = {
+    name,
+    anim_name: animName,
+    name_key: nameKey,
+    encrypted_name_key_key: encKey,
+    anim_key: animNameKey,
+    encrypted_anim_key_key: encKey,
+    name_idx: readLong(pos + 0x40, c),
+    anim_name_idx: readLong(pos + 0x48, c),
+    anim_addr_enc1: c.readUInt32(pos + 0x50),
+    anim_addr_enc2: c.readUInt32(pos + 0x54),
+    vuln: hurtbox,
+    encrypted_vuln_key: encKey,
+    hitlevel: hitLevel,
+    encrypted_hitlevel_key: encKey,
+    cancel_idx: readLong(pos + 0x98),
+    cancel1_addr: readLong(pos + 0xa0),
+    u1: readLong(pos + 0xa8),
+    u2: readLong(pos + 0xb0),
+    u3: readLong(pos + 0xb8),
+    u4: readLong(pos + 0xc0),
+    u6: readLong(pos + 0xc8),
+    transition: c.readUInt16(pos + 0xcc),
+    _0xCE: c.readUInt16(pos + 0xce),
+    _0xD0: ordinal1,
+    encrypted__0xD0_key: encKey,
+    ordinal_id: ordinal2,
+    encrypted_ordinal_id_key: encKey,
+    hit_condition_idx: readLong(pos + 0x110),
+    _0x118: c.readUInt32(pos + 0x118),
+    _0x11C: c.readUInt32(pos + 0x11c),
+    anim_max_len: c.readUInt32(pos + 0x120),
+    airborne_start: c.readUInt32(pos + 0x124),
+    airborne_end: c.readUInt32(pos + 0x128),
+    ground_fall: c.readUInt32(pos + 0x12c),
+    voiceclip_idx: readLong(pos + 0x130),
+    extra_properties_idx: readLong(pos + 0x138),
+    move_start_properties_idx: readLong(pos + 0x140),
+    move_end_properties_idx: readLong(pos + 0x148),
+    hitbox_location: hitboxLocation,
+    u15: c.readUInt32(pos + 0x150),
+    _0x154: c.readUInt32(pos + 0x154),
+    first_active_frame: c.readUInt32(pos + 0x158),
+    last_active_frame: c.readUInt32(pos + 0x15c),
+    ...hitboxes.reduce((obj, hitbox, i) => {
+      Object.entries(hitbox).forEach(([key, value]) => {
+        obj[`hitbox${i + 1}_${key}`] = value;
+      });
+      return obj;
+    }, {}),
+    u16: c.readUInt16(pos + 0x2e0),
+    u17: c.readUInt16(pos + 0x2e2),
+    u18: c.readUInt32(pos + 0x444),
+    unk5: Array(88)
+      .fill(0)
+      .map((_, i) => c.readUInt32(pos + 0x2e4 + 4 * i)),
+  };
+
+  return {
+    value: move,
+    size: 0x448,
+  };
+};
+
+const TK_Voiceclip = (ctx, pos) => ({
+  value: {
+    val1: ctx.readUInt32(pos),
+    val2: ctx.readUInt32(pos + 4),
+    val3: ctx.readUInt32(pos + 8),
+  },
+  size: 12,
+});
+
+const TK_InputSequence = (ctx, pos) => ({
+  value: {
+    u1: ctx.readUInt16(pos),
+    u2: ctx.readUInt16(pos + 2),
+    u3: ctx.readUInt32(pos + 4),
+    extradata_idx: readLong(pos + 8, ctx),
+  },
+  size: 16,
+});
+
+const TK_Input = (ctx, pos) => ({
+  value: {
+    u1: ctx.readUInt32(pos), // direction
+    u2: ctx.readUInt32(pos + 4), // button
+  },
+  size: 8,
+});
+
+const TK_ParryableMove = (ctx, pos) => ({
+  value: ctx.readUInt32(pos),
+  size: 4,
+});
+
+const TK_ThrowCameraData = (ctx, pos) => ({
+  value: {
+    u1: ctx.readUInt32(pos),
+    u2: Array.from({ length: 4 }, (_, i) => ctx.readUInt16(pos + 4 + i * 2)),
+  },
+  size: 12,
+});
+
+const TK_ThrowCameraHeader = (ctx, pos) => ({
+  value: {
+    u1: readLong(pos, ctx),
+    throwextra_idx: readLong(pos + 8, ctx),
+  },
+  size: 16,
+});
+
+const TK_DramaDialogue = (ctx, pos) => ({
+  value: {
+    type: ctx.readUInt16(pos),
+    id: ctx.readUInt16(pos + 2),
+    _0x4: ctx.readUInt32(pos + 4),
+    requirement_idx: readLong(pos + 8, ctx),
+    voiceclip_key: ctx.readUInt32(pos + 16),
+    facial_anim_idx: ctx.readUInt32(pos + 20),
+  },
+  size: 24,
+});
+
+// ========================== Utils & Functions ==========================
+function initMoveset() {
+  return {
+    original_hash: "",
+    last_calculated_hash: "",
+    export_version: "",
+    version: "",
+    character_id: 0,
+    extraction_date: "",
+    _0x4: 0,
     character_name: "",
     tekken_character_name: "",
-    creator_name: 0,
-    date: 0,
-    fulldate: 0,
-  }
+    creator_name: "",
+    date: "",
+    fulldate: "",
+    original_aliases: [],
+    current_aliases: [],
+    unknown_aliases: [],
+    requirements: [],
+    cancels: [],
+    group_cancels: [],
+    moves: [],
+    reaction_list: [],
+    hit_conditions: [],
+    pushbacks: [],
+    pushback_extras: [],
+    extra_move_properties: [],
+    move_start_props: [],
+    move_end_props: [],
+    voiceclips: [],
+    input_sequences: [],
+    input_extradata: [],
+    cancel_extradata: [],
+    projectiles: [],
+    throw_extras: [],
+    throws: [],
+    parry_related: [],
+    dialogues: [],
+    mota_type: 0,
+  };
 }
 
-function getCharacterId(moveset) {
-  const [charId1, charId2] = [moveset.unknown_aliases[33], moveset.unknown_aliases[35]]
-  return charId1 === 0 && charId2 === 1 ? 0 : charId2
-}
+function calculateHash(movesetData) {
+  const excludeKeys = [
+    "original_hash",
+    "last_calculated_hash",
+    "export_version",
+    "character_name",
+    "extraction_date",
+    "tekken_character_name",
+    "creator_name",
+    "date",
+    "fulldate",
+  ];
 
-function getCharacterName(moveset) {
-  const [charId1, charId2] = [moveset.unknown_aliases[33], moveset.unknown_aliases[35]]
-  return getCharacterName2(charId1 === 0 && charId2 === 1 ? 0 : charId2)
-}
+  let data = "";
 
-const offsetsList = [
-  { name: "_0x0", offset: 0x0, size: 2 },
-  { name: "is_initialized", offset: 0x2, size: 1 },
-  { name: "_0x3", offset: 0x3, size: 1 },
-  { name: "_0x4", offset: 0x4, size: 4 },
-  { name: "_0x8", offset: 0x8, size: "string" },
-  { name: "_0xC", offset: 0xc, size: 4 },
-  {
-    name: "character_name_addr",
-    offset: 0x10,
-    size: 8,
-  },
-  {
-    name: "character_creator_addr",
-    offset: 0x18,
-    size: 8,
-  },
-  {
-    name: "date_addr",
-    offset: 0x20,
-    size: 8,
-  },
-  {
-    name: "fulldate_addr",
-    offset: 0x28,
-    size: 8,
-  },
-  {
-    name: "original_aliases",
-    offset: 0x30,
-    size: [60, 2],
-  },
-  {
-    name: "current_aliases",
-    offset: 0xa8,
-    size: [60, 2],
-  },
-  {
-    name: "unknown_aliases",
-    offset: 0x120,
-    size: [36, 2],
-  },
-  {
-    name: "ordinal_id1",
-    offset: 0x160,
-    size: 4,
-  },
-  {
-    name: "ordinal_id2",
-    offset: 0x164,
-    size: 4,
-  },
-  { name: "reactions_ptr", offset: 0x168, size: 8 },
-  { name: "reactions_count", offset: 0x178, size: 8 },
-  { name: "requirements_ptr", offset: 0x180, size: 8 },
-  { name: "requirements_count", offset: 0x188, size: 8 },
-  { name: "hit_conditions_ptr", offset: 0x190, size: 8 },
-  { name: "hit_conditions_count", offset: 0x198, size: 8 },
-  { name: "projectiles_ptr", offset: 0x1a0, size: 8 },
-  { name: "projectiles_count", offset: 0x1a8, size: 8 },
-  { name: "pushbacks_ptr", offset: 0x1b0, size: 8 },
-  { name: "pushbacks_count", offset: 0x1b8, size: 8 },
-  { name: "pushback_extradata_ptr", offset: 0x1c0, size: 8 },
-  { name: "pushback_extradata_count", offset: 0x1c8, size: 8 },
-  { name: "cancels_ptr", offset: 0x1d0, size: 8 },
-  { name: "cancels_count", offset: 0x1d8, size: 8 },
-  { name: "group_cancels_ptr", offset: 0x1e0, size: 8 },
-  { name: "group_cancels_count", offset: 0x1e8, size: 8 },
-  { name: "cancel_extradata_ptr", offset: 0x1f0, size: 8 },
-  { name: "cancel_extradata_count", offset: 0x1f8, size: 8 },
-  { name: "extra_move_properties_ptr", offset: 0x200, size: 8 },
-  { name: "extra_move_properties_count", offset: 0x208, size: 8 },
-  { name: "move_start_props_ptr", offset: 0x210, size: 8 },
-  { name: "move_start_props_count", offset: 0x218, size: 8 },
-  { name: "move_end_props_ptr", offset: 0x220, size: 8 },
-  { name: "move_end_props_count", offset: 0x228, size: 8 },
-  { name: "moves_ptr", offset: 0x230, size: 8 },
-  { name: "moves_count", offset: 0x238, size: 8 },
-  { name: "voiceclips_ptr", offset: 0x240, size: 8 },
-  { name: "voiceclips_count", offset: 0x248, size: 8 },
-  { name: "input_sequences_ptr", offset: 0x250, size: 8 },
-  { name: "input_sequences_count", offset: 0x258, size: 8 },
-  { name: "input_extradata_ptr", offset: 0x260, size: 8 },
-  { name: "input_extradata_count", offset: 0x268, size: 8 },
-  { name: "unknown_parryrelated_list_ptr", offset: 0x270, size: 8 },
-  { name: "unknown_parryrelated_list_count", offset: 0x278, size: 8 },
-  { name: "throw_extras_ptr", offset: 0x280, size: 8 },
-  { name: "throw_extras_count", offset: 0x288, size: 8 },
-  { name: "throws_ptr", offset: 0x290, size: 8 },
-  { name: "throws_count", offset: 0x298, size: 8 },
-  { name: "dialogues_ptr", offset: 0x2a0, size: 8 },
-  { name: "dialogues_count", offset: 0x2a8, size: 8 },
-];
-
-const cancelStruct = {
-  command: { offset: 0x0, size: 8 },
-  requirement_idx: { offset: 0x8, size: 8, parent: "requirements" },
-  extradata_idx: { offset: 0x10, size: 8, parent: "cancel_extradata" },
-  frame_window_start: { offset: 0x18, size: 4 },
-  frame_window_end: { offset: 0x1c, size: 4 },
-  starting_frame: { offset: 0x20, size: 4 },
-  move_id: { offset: 0x24, size: 2 },
-  cancel_option: { offset: 0x26, size: 2 },
-};
-
-const otherMovePropStruct = {
-  requirement_idx: { offset: 0x0, size: 8, parent: "requirements" },
-  id: { offset: 0x8, size: 4 },
-  value: { offset: 0xc, size: 4 },
-  value2: { offset: 0x10, size: 4 },
-  value3: { offset: 0x14, size: 4 },
-  value4: { offset: 0x18, size: 4 },
-  value5: { offset: 0x1c, size: 4 },
-};
-
-const listOffsets = [
-  {
-    name: "reactions",
-    offset: 0x168,
-    size_offset: 0x10,
-    item_struct: {
-      // Array
-      pushback_indexes: { offset: 0x0, size: [7, 8], parent: "pushbacks" },
-
-      // Directions
-      front_direction: { offset: 0x38, size: 2 },
-      back_direction: { offset: 0x3a, size: 2 },
-      left_side_direction: { offset: 0x3c, size: 2 },
-      right_side_direction: { offset: 0x3e, size: 2 },
-      front_counterhit_direction: { offset: 0x40, size: 2 },
-      downed_direction: { offset: 0x42, size: 2 },
-
-      // Rotations
-      front_rotation: { offset: 0x44, size: 2 },
-      back_rotation: { offset: 0x46, size: 2 },
-      left_side_rotation: { offset: 0x48, size: 2 },
-      right_side_rotation: { offset: 0x4a, size: 2 }, // Vertical pushback (a.k.a front_counterhit_rotation)
-      vertical_pushback: { offset: 0x4c, size: 4 },
-      downed_rotation: { offset: 0x4e, size: 2 },
-
-      // Move IDs
-      standing: { offset: 0x50, size: 2 },
-      crouch: { offset: 0x52, size: 2 },
-      ch: { offset: 0x54, size: 2 },
-      crouch_ch: { offset: 0x56, size: 2 },
-      left_side: { offset: 0x58, size: 2 },
-      left_side_crouch: { offset: 0x5a, size: 2 },
-      right_side: { offset: 0x5c, size: 2 },
-      right_side_crouch: { offset: 0x5e, size: 2 },
-      back: { offset: 0x60, size: 2 },
-      back_crouch: { offset: 0x62, size: 2 },
-      block: { offset: 0x64, size: 2 },
-      crouch_block: { offset: 0x66, size: 2 },
-      wallslump: { offset: 0x68, size: 2 },
-      downed: { offset: 0x6a, size: 2 },
-      unk1: { offset: 0x6c, size: 2 },
-      unk2: { offset: 0x6e, size: 2 },
-    },
-  },
-  {
-    name: "requirements",
-    offset: 0x180,
-    item_struct: {
-      req: { offset: 0x0, size: 4 },
-      param: { offset: 0x4, size: 4 },
-      param2: { offset: 0x8, size: 4 },
-      param3: { offset: 0xc, size: 4 },
-      param4: { offset: 0x10, size: 4 },
-    },
-  },
-  {
-    name: "hit_conditions",
-    offset: 0x190,
-    item_struct: {
-      requirement_idx: { offset: 0x0, size: 8, parent: "requirements" },
-      damage: { offset: 0x8, size: 4 },
-      // _0xc: { offset: 0xc, size: 4 },
-      reaction_list_idx: { offset: 0x10, size: 8, parent: "reactions" },
-    },
-  },
-  {
-    name: "projectiles",
-    offset: 0x1a0,
-    item_struct: {
-      u1: { offset: 0x0, size: [35, 4] },
-      hit_condition_idx: { offset: 0x90, size: 8, parent: "hit_conditions" },
-      cancel_idx: { offset: 0x98, size: 8, parent: "cancels" },
-      u2: { offset: 0xa0, size: [14, 4] },
-    },
-  },
-  {
-    name: "pushbacks",
-    offset: 0x1b0,
-    item_struct: {
-      val1: { offset: 0x0, size: 2 },
-      val2: { offset: 0x2, size: 2 },
-      val3: { offset: 0x4, size: 4 },
-      pushbackextra_idx: { offset: 0x8, size: 8, parent: "pushback_extradata" },
-    },
-  },
-  {
-    name: "pushback_extradata",
-    offset: 0x1c0,
-    item_struct: {
-      value: { offset: 0x0, size: 2 },
-    },
-  },
-  {
-    name: "cancels",
-    offset: 0x1d0,
-    item_struct: cancelStruct,
-  },
-  {
-    name: "group_cancels",
-    offset: 0x1e0,
-    item_struct: cancelStruct,
-  },
-  {
-    name: "cancel_extradata",
-    offset: 0x1f0,
-    item_struct: {
-      value: { offset: 0x0, size: 4 },
-    },
-  },
-  {
-    name: "extra_move_properties",
-    offset: 0x200,
-    item_struct: {
-      type: { offset: 0x0, size: 4 },
-      _0x4: { offset: 0x4, size: 4 },
-      requirement_idx: { offset: 0x8, size: 8, parent: "requirements" },
-      id: { offset: 0x10, size: 4 },
-      value: { offset: 0x14, size: 4 },
-      value2: { offset: 0x18, size: 4 },
-      value3: { offset: 0x1c, size: 4 },
-      value4: { offset: 0x20, size: 4 },
-      value5: { offset: 0x24, size: 4 },
-    },
-  },
-  {
-    name: "move_start_props",
-    offset: 0x210,
-    item_struct: otherMovePropStruct,
-  },
-  {
-    name: "move_end_props",
-    offset: 0x220,
-    item_struct: otherMovePropStruct,
-  },
-  {
-    name: "moves",
-    offset: 0x230,
-    item_struct: {
-      anim_key1: { offset: 0x50, size: 4 },
-      anim_key2: { offset: 0x54, size: 4 },
-      cancel_idx: { offset: 0x98, size: 8, parent: "cancels" },
-      hit_condition_idx: { offset: 0x110, size: 8, parent: "hit_conditions" },
-      transition: { offset: 0xCC, size: 2 },
-      _0xCE: { offset: 0xCE, size: 2 },
-      anim_max_length: { offset: 0x120, size: 4 },
-      airborne_start: { offset: 0x124, size: 4 },
-      airborne_end: { offset: 0x128, size: 4 },
-      ground_fall: { offset: 0x12C, size: 4 },
-      voiceclip_idx: { offset: 0x130, size: 8, parent: "voiceclips" },
-      extra_properties_idx: { offset: 0x138, size: 8, parent: "extra_move_properties" },
-      move_start_properties_idx: { offset: 0x140, size: 8, parent: "move_start_props" },
-      move_end_properties_idx: { offset: 0x148, size: 8, parent: "move_end_props" },
-      u15: { offset: 0x150, size: 4 },
-      _0x154: { offset: 0x154, size: 4 },
-      startup: { offset: 0x158, size: 4 },
-      recovery: { offset: 0x15C, size: 4 },
-      _0x444: { offset: 0x444, size: 4 },
-    },
-  },
-  {
-    name: "voiceclips",
-    offset: 0x240,
-    item_struct: {
-      val1: { offset: 0x0, size: 4 },
-      val2: { offset: 0x4, size: 4 },
-      val3: { offset: 0x8, size: 4 },
-    },
-  },
-  {
-    name: "input_sequences",
-    offset: 0x250,
-    item_struct: {
-      u1: { offset: 0x0, size: 2 },
-      u2: { offset: 0x2, size: 2 },
-      u3: { offset: 0x4, size: 4 },
-      extradata_idx: { offset: 0x8, size: 8, parent: "input_extradata" },
-    },
-  },
-  {
-    name: "input_extradata",
-    offset: 0x260,
-    item_struct: {
-      value: { offset: 0x0, size: 8 },
-    },
-  },
-  {
-    name: "unknown_parryrelated_list",
-    offset: 0x270,
-    item_struct: {
-      value: { offset: 0x0, size: 4 },
-    },
-  },
-  {
-    name: "throw_extras",
-    offset: 0x280,
-    item_struct: {
-      u1: { offset: 0x0, size: 4 },
-      u2: { offset: 0x4, size: [4, 2] },
-    },
-  },
-  {
-    name: "throws",
-    offset: 0x290,
-    item_struct: {
-      u1: { offset: 0x0, size: 8 },
-      throwextra_idx: { offset: 0x8, size: 8, parent: "throw_extras" },
-    },
-  },
-  {
-    name: "dialogues",
-    offset: 0x2a0,
-    item_struct: {
-      type: { offset: 0x0, size: 2 },
-      id: { offset: 0x2, size: 2 },
-      _0x4: { offset: 0x4, size: 4 },
-      requirement_idx: { offset: 0x8, size: 8, parent: "requirements" },
-      voiceclip_key: { offset: 0xc, size: 4 },
-      facial_anim_idx: { offset: 0x10, size: 4 },
-    },
-  },
-];
-
-/**
- * Method to read from the file
- * @param {Buffer} buffer
- * @param {number} offset
- * @param {number} size
- * @returns {any}
- */
-function readInt(buffer, offset, size) {
-  switch (size) {
-    case 1:
-      return buffer.readUInt8(offset);
-    case 2:
-      return buffer.readUInt16LE(offset);
-    case 4:
-      return buffer.readUInt32LE(offset);
-    case 8: {
-      return buffer.readBigUInt64LE(offset);
+  // Concatenate the values of keys not in excludeKeys
+  for (const key of Object.keys(movesetData)) {
+    if (!excludeKeys.includes(key)) {
+      data += String(movesetData[key]);
     }
-    default:
-      return undefined;
   }
+
+  // Calculate CRC32 and convert to hexadecimal
+  const hash = crc32.str(data);
+  return (hash >>> 0).toString(16); // Ensure unsigned 32-bit result and convert to hex
+}
+
+function cancelHasReq407(cancel, moveset) {
+  let idx = cancel.requirement_idx;
+  while (idx < moveset.requirements.length) {
+    const { req } = moveset.requirements[idx];
+    if (req === REQ_EOL) break;
+    if (req >= 0x407 && req !== 1049 && (req & 0x8000) === 0) return true;
+    idx++;
+  }
+  return false;
+}
+
+function cancelHasReq424(cancel, moveset) {
+  let idx = cancel.requirement_idx;
+  while (idx < moveset.requirements.length) {
+    const { req } = moveset.requirements[idx];
+    if (req === REQ_EOL) break;
+    if (req >= 0x424 && (req & 0x8000) === 0) return true;
+    idx++;
+  }
+  return false;
+}
+
+function cancelHasReqAndParam(cancel, moveset, target, targetParam = null) {
+  let idx = cancel.requirement_idx;
+  while (idx < moveset.requirements.length) {
+    const { req, param } = moveset.requirements[idx];
+    if (req === REQ_EOL) break;
+    if (req === target && (targetParam === null || param === targetParam)) {
+      return true;
+    }
+    idx++;
+  }
+  return false;
+}
+
+function cancelHasStoryReqs(cancel, moveset) {
+  const storyReqs = [667, 668, 1023, 745, 801, 802];
+  let idx = cancel.requirement_idx;
+  while (idx < moveset.requirements.length) {
+    const { req } = moveset.requirements[idx];
+    if (req === REQ_EOL) break;
+    if (storyReqs.includes(req)) return true;
+    idx++;
+  }
+  return false;
+}
+
+function cancelCheck1(cancel, moveset) {
+  const reqs = [131, 132, 133, 134, 135];
+  const flag1 =
+    cancel.command ||
+    reqs.some((id) => cancelHasReqAndParam(cancel, moveset, id));
+  const flag2 = !cancelHasStoryReqs(cancel, moveset);
+  return flag1 && flag2;
+}
+
+function cancelCheck2(cancel, moveset) {
+  let value = moveset.cancel_extradata[cancel.extradata_idx];
+  value = value & 0x3c00;
+  return !(value == 0x2800 || value == 0x2c00);
+}
+
+function cancelCheck3(cancel, moveset) {
+  const value = moveset.cancel_extradata[cancel.extradata_idx];
+  return (value & 0x3f) === 0x16;
+}
+
+function cancelCheck4(cancel) {
+  const moveId = cancel.move_id;
+  return (
+    moveId >= 0x8000 &&
+    (moveId === 0x8027 || moveId <= 0x8020 || moveId >= 0x802b)
+  );
 }
 
 /**
- * Method to read a null-terminated string from the buffer
- * @param {Buffer} buffer
- * @param {number} offset
- * @returns {string}
+ * @param {BinaryFileReader} reader
+ * @param {number[][]} animKeys
  */
-function readString(buffer, offset) {
-  let end = offset;
-  // Find the null terminator (\0)
-  while (end < buffer.length && buffer[end] !== 0) {
-    end++;
+function readMotbinFile(reader, animKeys = []) {
+  // ======== HELPERS ========
+  const readLong = (offset) => Number(reader.readUInt64(offset));
+
+  const getStartAndCount = (offset) => {
+    const start = readLong(offset) + BASE;
+    const countOffset = offset === 0x168 ? 16 : 8;
+    const count = readLong(offset + countOffset);
+    return [start, count];
+  };
+
+  const readStructList = (offset, key, StructFn) => {
+    if (!StructFn) throw Error("A Struct Function is Required");
+    const [start, count] = getStartAndCount(offset);
+    // print(hex(start), count);
+    if (start !== 0) reader.seek(start);
+    let readCount = 0;
+    for (let i = 0; i < count; i++) {
+      const value =
+        key === "moves"
+          ? reader.read((c, p) => StructFn(c, p, i))
+          : reader.read(StructFn);
+      moveset[key].push(value);
+      readCount++;
+    }
+    print(`Read ${readCount}/${count} items of "${key}"`);
+  };
+
+  // =========================
+
+  // Reading initial header
+  const charId = reader.read(TK_CharId);
+  const charName = getCharacterName(charId);
+
+  const moveset = initMoveset();
+
+  moveset.export_version = "1.0.1";
+  moveset.version = "Tekken8";
+  moveset.character_id = charId;
+  moveset.extraction_date = new Date().toISOString();
+  moveset._0x4 = reader.readUInt32(0x4);
+  moveset.character_name = "t8_" + charName.slice(1, -1);
+  moveset.tekken_character_name = charName;
+  moveset.creator_name = 0;
+  moveset.date = 0;
+  moveset.fulldate = 0;
+
+  print(charId, charName, moveset.character_name);
+
+  reader.seek(0x30);
+  for (let i = 0; i < N_ALIASES; i++) {
+    moveset.original_aliases[i] = reader.readUInt16();
   }
-  // Read the string up to the null terminator
-  return buffer.slice(offset, end).toString("utf-8");
+  for (let i = 0; i < N_ALIASES; i++) {
+    moveset.current_aliases[i] = reader.readUInt16();
+  }
+  for (let i = 0; i < N_UNK_ALIASES; i++) {
+    moveset.unknown_aliases[i] = reader.readUInt16();
+  }
+
+  // Reading requirements
+  readStructList(0x168, "reaction_list", TK_Reaction);
+  readStructList(0x180, "requirements", TK_Requirment);
+  readStructList(0x190, "hit_conditions", TK_HitCondition);
+  readStructList(0x1a0, "projectiles", TK_Projectile);
+  readStructList(0x1b0, "pushbacks", TK_Pushback);
+  readStructList(0x1c0, "pushback_extras", TK_Displacement);
+  readStructList(0x1d0, "cancels", TK_Cancel);
+  readStructList(0x1e0, "group_cancels", TK_Cancel);
+  readStructList(0x1f0, "cancel_extradata", TK_CancelFlags);
+  readStructList(0x200, "extra_move_properties", TK_TimedExtraprops);
+  readStructList(0x210, "move_start_props", TK_UntimedExtraprops);
+  readStructList(0x220, "move_end_props", TK_UntimedExtraprops);
+  readStructList(0x230, "moves", TK_Move);
+  readStructList(0x240, "voiceclips", TK_Voiceclip);
+  readStructList(0x250, "input_sequences", TK_InputSequence);
+  readStructList(0x260, "input_extradata", TK_Input);
+  readStructList(0x270, "parry_related", TK_ParryableMove);
+  readStructList(0x280, "throw_extras", TK_ThrowCameraData);
+  readStructList(0x290, "throws", TK_ThrowCameraHeader);
+  readStructList(0x2a0, "dialogues", TK_DramaDialogue);
+
+  // POST PROCESSING STUFF
+  moveset.original_hash = calculateHash(moveset);
+  moveset.last_calculated_hash = calculateHash(moveset);
+
+  const calculateCancelOptions = (array) => {
+    array.forEach((cancel) => {
+      let option = cancel.cancel_option;
+      option |= +!cancel.command;
+      option |= cancelHasReq407(cancel, moveset) ? 2 : 0;
+      option |= cancelHasReq424(cancel, moveset) ? 4 : 0;
+      option |= cancelHasReqAndParam(cancel, moveset, 0x87fb) ? 8 : 0;
+      option |= cancelHasReqAndParam(cancel, moveset, 159, 1) ? 0x200 : 0;
+      option |= cancelCheck1(cancel, moveset) ? 0x10 : 0;
+      option |= cancelCheck2(cancel, moveset) ? 0x40 : 0;
+      option |= cancelCheck3(cancel, moveset) ? 0x80 : 0;
+      option |= cancelCheck4(cancel) ? 0x100 : 0;
+      cancel.cancel_option = option;
+    });
+  };
+
+  calculateCancelOptions(moveset.cancels);
+  calculateCancelOptions(moveset.group_cancels);
+
+  const makeVal = (n) => parseInt(`0xEF00${n.toString(16).padStart(2, "0")}00`);
+
+  // Animation Keys
+  for (let i = 0; i < moveset.moves.length; i++) {
+    const move = moveset.moves[i];
+    move.anim_addr_enc1 = animKeys?.[i][0] ?? move.anim_addr_enc1;
+    move.anim_addr_enc2 = makeVal(charId);
+
+    let animLen = animKeys?.[i][1] ?? move.anim_max_len;
+    animLen = animLen ? animLen + 1 : animLen;
+    move.anim_max_len = animLen;
+    // idk what's this but replicating game's behaviour
+    if (move._0x11C > 1) {
+      move.anim_max_len = animLen + 1 - move._0x11C;
+    }
+  }
+
+  return moveset;
 }
 
-/**
- * Method to read from the file
- * @param {Buffer} buffer
- * @param {number} offset
- * @param {number | string | Array<number>} size
- * @returns {any}
- */
-function read(buffer, offset, size = 4) {
-  switch (typeof size) {
-    case "number":
-      return readInt(buffer, offset, size);
-    case "string":
-      return readString(buffer, offset);
-    case "object":
-      return Array(size[0])
-        .fill(0)
-        .map((_, i) => readInt(buffer, offset + i * size[1], size[1]));
-    default:
-      return undefined;
-  }
-}
-
-/**
- * Reads a binary file and extracts specific byte values.
- * @param {string} filePath - The path to the binary file.
- * @returns {object} - An object containing the extracted values.
- */
-function parseBinaryFile(filePath) {
+function readAnimLengths(reader) {
   try {
-    const buffer = fs.readFileSync(filePath);
+    // print("Reading anim lengths from %s", filePath);
+    // const fileBuffer = fs.readFileSync(filePath);
+    // const reader = new BinaryFileReader(fileBuffer.buffer);
 
-    const moveset = getInitialValues();
+    const readLong = (offset) => Number(reader.readUInt64(offset));
 
-    const addrToIdx = (addr, key) => {
-      const start = moveset[`${key}_ptr`];
-      const size = t8StructSizes[key];
-      return (Number(addr) - Number(start)) / size;
-    };
+    const animCount = reader.readUInt32(4);
+    // print("Count: %d", animCount);
+    const animList = readLong(0x38);
+    // print(hex(animList));
 
-    const startAddress = buffer.readBigUInt64LE(0);
-    // const endAddress = buffer.readBigUint64LE(8);
-
-    offsetsList.forEach(({ name, offset, size }) => {
-      moveset[name] = read(buffer, offset + 16, size);
-    });
-
-    listOffsets.forEach(
-      ({
-        name,
-        offset,
-        size_offset: sizeOffset = 0x8,
-        item_struct: structure,
-      }) => {
-        console.log(`Reading ${name}...`);
-        const count = read(buffer, offset + 16 + sizeOffset, 4);
-        const start = read(buffer, offset + 16, 8) - startAddress;
-
-        const list = [];
-        for (let i = 0; i < count; i++) {
-          let error = false;
-          const itemOffset = Number(start) + 16 + t8StructSizes[name] * i;
-          const item = {};
-          Object.entries(structure).forEach(([key, value]) => {
-            try {
-              const val = read(buffer, itemOffset + value.offset, value.size);
-              item[key] = val;
-              // Calculating Index
-              if (value.parent) {
-                if (Array.isArray(item[key])) {
-                  item[key] = item[key].map(x => addrToIdx(x, value.parent));
-                } else {
-                  item[key] = addrToIdx(item[key], value.parent);
-                }
-              }
-            } catch (err) {
-              console.error(`idx: ${i}, ${itemOffset}`);
-              error = true;
-            }
-          });
-          if (!error) list.push(item);
-        }
-        moveset[name] = list;
-
-        if (
-          [
-            "pushback_extradata",
-            "cancel_extradata",
-            "input_extradata",
-            "unknown_parryrelated_list",
-          ].includes(name)
-        ) {
-          moveset[name] = list.map(x => x.value);
-        }
-      },
-    );
-
-    offsetsList.forEach(({ name }) => {
-      if (name.endsWith("_ptr") || name.endsWith("_count")) {
-        delete moveset[name];
-      }
-    });
-
-    // Setting some fields
-    const name = getCharacterName(moveset);
-    moveset.version = "Tekken8";
-    moveset.character_id = getCharacterId(moveset);
-    moveset.character_name = "t8_" + name.slice(1, -1);
-    moveset.tekken_character_name = name;
-
-    // Deleting some fields
-    delete moveset._0x0
-    delete moveset.is_initialized
-    delete moveset._0x3
-    delete moveset._0x8
-    delete moveset._0xC
-    delete moveset.character_name_addr
-    delete moveset.character_creator_addr
-    delete moveset.date_addr
-    delete moveset.fulldate_addr
-    delete moveset.ordinal_id1
-    delete moveset.ordinal_id2
-
-    return moveset;
-  } catch (error) {
-    console.error("Error reading the binary file:", error);
-    return null;
+    const anims = {};
+    for (let i = 0; i < animCount; i++) {
+      const offset = animList + i * 56;
+      const animKey = reader.readUInt32(offset);
+      const animOffset = readLong(offset + 8);
+      anims[animKey] = animOffset
+        ? reader.readUInt32(animOffset + 0x40) + 1
+        : 0;
+    }
+    return anims;
+  } catch {
+    return {};
   }
+}
+
+function readAnimKeys(reader) {
+  try {
+    // const fileBuffer = fs.readFileSync(filePath);
+    // const reader = new BinaryFileReader(fileBuffer.buffer);
+
+    const readLong = (offset) => Number(reader.readUInt64(offset));
+
+    const animKeysCount = reader.readUInt32(0x1c);
+    const animKeysListOffset = readLong(0x68);
+    const keys = [];
+    for (let i = 0; i < animKeysCount; i++) {
+      const key = reader.readUInt32(animKeysListOffset + i * 4);
+      keys.push(key);
+    }
+    print("Read %d anim keys", keys.length);
+    return keys;
+  } catch {
+    return [];
+  }
+}
+
+function readAnimations(filePath, charCode) {
+  let animKeys = [];
+  let animLengthsObj = {};
+  let comAnimLengthsObj = {};
+
+  // Try reading character-specific file
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const reader = new BinaryFileReader(fileBuffer.buffer);
+    animKeys = readAnimKeys(reader);
+    animLengthsObj = readAnimLengths(reader);
+  } catch (e) {
+    console.warn("Failed to read character anim file", e);
+  }
+
+  // Try reading common file
+  try {
+    const comFilePath = filePath.replace(charCode, "com");
+    const fileBuffer = fs.readFileSync(comFilePath);
+    const reader = new BinaryFileReader(fileBuffer.buffer);
+    comAnimLengthsObj = readAnimLengths(reader);
+  } catch (e) {
+    console.warn("Failed to read common anim file", e);
+  }
+
+  // Merge whatever we managed to read
+  return animKeys.map((key) => [
+    key,
+    animLengthsObj[key] ?? comAnimLengthsObj[key] ?? 0,
+  ]);
 }
 
 function main() {
-  const result = parseBinaryFile("./extracted_chars_v1_09_bin/t8_ALISA.bin");
+  const folderPath = "./Binary_expanded/mothead/bin";
+  const files = fs
+    .readdirSync(folderPath)
+    .filter((file) => file.endsWith(".motbin") && !file.includes("ja4"));
 
-  if (result) {
-    fs.writeFileSync(
-      "./test.json",
-      JSON.stringify(result, (_, value) =>
-        typeof value === "bigint" ? Number(value) : value
-      )
-    )
+  const codeName = process.argv[2];
+
+  // Temporary
+  if (!codeName) {
+    print("Please provide a codename");
+    return;
+  }
+
+  for (const file of files) {
+    // If codename is present, also process that specific file, otherwise process everything
+    if (codeName && !file.includes(codeName)) {
+      continue;
+    }
+
+    const filePath = `${folderPath}/${file}`;
+
+    const animFilePath = `${folderPath}/${file}`.replace(".motbin", ".anmbin");
+    const animKeys = readAnimations(animFilePath, file.replace(".motbin", ""));
+
+    const fileBuffer = fs.readFileSync(filePath);
+    const reader = new BinaryFileReader(fileBuffer.buffer);
+
+    const moveset = readMotbinFile(reader, animKeys);
+    // const newFile = moveset.character_name + ".json";
+    const newFile = "output/path.json";
+    const data = JSON.stringify(
+      moveset,
+      (_, value) => (typeof value === "bigint" ? value.toString() : value),
+      2,
+    );
+    fs.writeFileSync(newFile, data);
+    console.log(
+      `Moveset ${moveset.tekken_character_name} written at ${newFile}`,
+    );
   }
 }
 
