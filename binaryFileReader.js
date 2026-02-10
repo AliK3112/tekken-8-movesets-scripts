@@ -178,17 +178,13 @@ class BinaryFileReader {
   }
 
   readInt64(position = this.pointer, littleEndian = true) {
-    const low = this.view.getUint32(position, littleEndian)
-    const high = this.view.getUint32(position + 4, littleEndian)
     if (position === this.pointer) this.pointer += 8
-    return high * 2 ** 32 + low
+    return this.view.getBigInt64(position, littleEndian);
   }
 
   readUInt64(position = this.pointer, littleEndian = true) {
-    const low = this.view.getUint32(position, littleEndian)
-    const high = this.view.getUint32(position + 4, littleEndian)
     if (position === this.pointer) this.pointer += 8
-    return (BigInt(high) << 32n) | BigInt(low)
+    return this.view.getBigUint64(position, littleEndian);
   }
 
   readFloat32(position = this.pointer, littleEndian = true) {
