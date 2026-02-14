@@ -89,6 +89,7 @@ function processFunc(reader, targetKey, charId) {
       };
     }
 
+    printf(printn(reader.read(tk_charId), 5));
     printf(
       `${printn(getCodeById(charId), 4)} ${getCharacterName(reader).padEnd(
         20,
