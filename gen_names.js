@@ -3,10 +3,10 @@ const Hash = require("./hash");
 const BinaryFileReader = require("./binaryFileReader");
 const { readMovesList, hex } = require("./utils");
 
-const FILE = "wkz";
-const PREFIX = "Wkz_RITSUKON_";
+const FILE = "cat";
+const PREFIX = "Cat_";
 const POSTFIX = "";
-const DEPTH = 3;
+const DEPTH = 4;
 const PATH = `./Binary/mothead/bin/${FILE}.motbin`;
 const DICT_PATH = "./name_keys.json";
 const DICT = require(DICT_PATH);
@@ -45,6 +45,8 @@ function generateThrowNames(moves) {
     "nagef",
     "nageL",
     "nageR",
+    "LSide",
+    "RSide",
     "9wp",
     "9WP",
   ];
@@ -104,6 +106,14 @@ function generateMovements(moves) {
     "sjprk01F",
     "sjprk02F",
     "sjprk03F",
+    "rpF",
+    "lpF",
+    "rkF",
+    "lkF",
+    "rpB",
+    "lpB",
+    "rkB",
+    "lkB",
     "lp00B",
     "lp00F",
     "lp00Fmis",
@@ -123,14 +133,30 @@ function generateMovements(moves) {
     "rk00",
     "rk00F",
     "rk00B",
+    "WP",
+    "WK",
+    "wp",
+    "wk",
+    "WPF",
+    "WKF",
+    "wpF",
+    "wkF",
+    "WPB",
+    "WKB",
+    "wpB",
+    "wkB",
     "syalp",
     "syalpF",
+    "syalp00",
     "syarp",
     "syarpF",
+    "syarp00",
     "syalk",
     "syalkF",
+    "syalk00",
     "syark",
     "syarkF",
+    "syark00",
   ];
   for (const string of strings) {
     const value = PREFIX + string;
@@ -220,7 +246,7 @@ function generateCodeNameStrings(moves, prefix = PREFIX) {
     .map((x) => x.toString())
     .concat("");
   let inputs = ["LP", "RP", "LK", "RK", "WP", "WK", "s", ""];
-  // inputs = inputs.map((x) => x.toLowerCase());
+  inputs = inputs.map((x) => x.toLowerCase());
   const prefix = PREFIX;
   const postfix = POSTFIX;
 
