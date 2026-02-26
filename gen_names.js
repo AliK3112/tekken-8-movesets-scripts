@@ -3,13 +3,15 @@ const Hash = require("./hash");
 const BinaryFileReader = require("./binaryFileReader");
 const { readMovesList, hex } = require("./utils");
 
-const FILE = "cat";
-const PREFIX = "Cat_";
+const FILE = "xxf";
+const PREFIX = "Xf_";
 const POSTFIX = "";
-const DEPTH = 4;
+const DEPTH = 2;
 const PATH = `./Binary/mothead/bin/${FILE}.motbin`;
 const DICT_PATH = "./name_keys.json";
 const DICT = require(DICT_PATH);
+const MOVES_DICT = {};
+const NAME_KEY_SET = new Set();
 
 const print = console.log;
 const hash = (value) => hex(Hash.computeKamuiHash(value));
@@ -161,8 +163,9 @@ function generateMovements(moves) {
   for (const string of strings) {
     const value = PREFIX + string;
     const hashed = Number(Hash.computeKamuiHash(value));
-    const found = moves.find((move) => move.name_key === hashed);
-    addToDict(value, hashed, found);
+    if (NAME_KEY_SET.has(hashed)) {
+      addToDict(value, hashed, MOVES_DICT[hashed]);
+    }
   }
 }
 
@@ -197,13 +200,15 @@ function generateHeatAndRageMoves(moves) {
   for (const string of strings) {
     const value = PREFIX + string;
     const hashed = Number(Hash.computeKamuiHash(value));
-    const found = moves.find((move) => move.name_key === hashed);
-    addToDict(value, hashed, found);
+    if (NAME_KEY_SET.has(hashed)) {
+      addToDict(value, hashed, MOVES_DICT[hashed]);
+    }
   }
 }
 
 /**
  * @param {any[]} moves
+ * @param {string} prefix
  */
 function generateCodeNameStrings(moves, prefix = PREFIX) {
   const strings = Array(10)
@@ -213,40 +218,68 @@ function generateCodeNameStrings(moves, prefix = PREFIX) {
     const value = (prefix + "rs" + string).toLowerCase();
     const hashed = Number(Hash.computeKamuiHash(value));
     const found = moves.find((move) => move.name_key === hashed);
-    // print(value, hashed, hex(hashed), !!found);
     addToDict(value, hashed, found);
   }
   // Customization Poses
   ["CUS_KAM", "CUS_TPOSE"].forEach((code) => {
     const value = prefix + code;
     const hashed = Number(Hash.computeKamuiHash(value));
-    const found = moves.find((move) => move.name_key === hashed);
-    addToDict(value, hashed, found);
+    if (NAME_KEY_SET.has(hashed)) {
+      addToDict(value, hashed, MOVES_DICT[hashed]);
+    }
   });
+}
+
+function trySuffixVariants(baseStrings) {
+  const suffixes = [
+    "2",
+    "3",
+    "4",
+    "_2",
+    "_3",
+    "_4",
+    "_EX",
+    "_EX2",
+    "_EX3",
+    "EX",
+    "EX2",
+    "_Lv2",
+    "_Lv3",
+  ];
+  for (const base of baseStrings) {
+    for (const suffix of suffixes) {
+      const value = base + suffix;
+      const hashed = Number(Hash.computeKamuiHash(value));
+      if (NAME_KEY_SET.has(hashed)) {
+        addToDict(value, hashed, MOVES_DICT[hashed]);
+      }
+    }
+  }
 }
 
 (() => {
   // const hashes = readBin().filter(hash => [5, 6].includes(hash.name_length));
-  const hashes = readBin();
-  const hashedObj = hashes.reduce((obj, x) => {
-    obj[x.name_key] = x;
-    return obj;
-  }, {});
-  // const hashedObj = {};
-  generateThrowNames(hashes);
-  generateMovements(hashes);
-  generateHeatAndRageMoves(hashes);
-  generateCodeNameStrings(hashes, FILE + "_");
+  const moves = readBin();
 
   // Create a Set of the name_keys from the hashes for O(1) lookups
-  const nameKeySet = new Set(hashes.map((hash) => hash.name_key));
+  // Setting it up globally
+  NAME_KEY_SET.clear();
+  for (const move of moves) {
+    MOVES_DICT[move.name_key] = move;
+    NAME_KEY_SET.add(move.name_key);
+  }
+
+  generateThrowNames(moves);
+  generateMovements(moves);
+  generateHeatAndRageMoves(moves);
+  generateCodeNameStrings(moves, FILE + "_");
 
   // Define the directions and inputs as before
   const directions = [1, 2, 3, 4, 6, 7, 8, 9, 66, 44, 666, 623, 412]
     .map((x) => x.toString())
     .concat("");
   let inputs = ["LP", "RP", "LK", "RK", "WP", "WK", "s", ""];
-  inputs = inputs.map((x) => x.toLowerCase());
+  // inputs = inputs.map((x) => x.toLowerCase());
   const prefix = PREFIX;
   const postfix = POSTFIX;
 
@@ -262,8 +295,8 @@ function generateCodeNameStrings(moves, prefix = PREFIX) {
       if (currentDepth === depth) {
         return [current];
       }
-      return inputs.flatMap((input) =>
-        generateCombinations(currentDepth + 1, current + input),
+      return inputs.flatMap(
+        (input) => generateCombinations(currentDepth + 1, current + input),
         // generateCombinations(
         //   currentDepth + 1,
         //   current && input ? `${current}_${input}` : current + input,
@@ -278,16 +311,20 @@ function generateCodeNameStrings(moves, prefix = PREFIX) {
     });
   });
 
-  // Iterate through precomputed hashes and check against nameKeySet for O(1) lookup
+  const discoveredStrings = [];
+  // Iterate through precomputed hashes and check against "NAME_KEY_SET" for O(1) lookup
   hashCombinations.forEach(({ string, hashed }) => {
-    if (nameKeySet.has(+hashed)) {
+    if (NAME_KEY_SET.has(+hashed)) {
       // Checking if the length matches the target string
-      if (!DICT[+hashed] && hashedObj[+hashed].name_length === string.length) {
+      if (!DICT[+hashed] && MOVES_DICT[+hashed].name_length === string.length) {
         DICT[+hashed] = string;
         print(string, hashed);
+        discoveredStrings.push(string);
       }
     }
   });
+
+  trySuffixVariants(discoveredStrings);
 
   // Save the updated DICT back to the file
   fs.writeFileSync(DICT_PATH, JSON.stringify(DICT, null, 2));
