@@ -186,8 +186,8 @@ struct tk_move
   uint32_t ordinal_id2_related[4]; // offset 0x100
 
   tk_hit_condition *hit_condition_ptr;                // offset 0x110
-  uint32_t _0x118;                                    // offset 0x118
-  uint32_t _0x11C;                                    // offset 0x11C
+  uint32_t damage_override;                           // offset 0x118
+  uint32_t anim_max_len_adjuster;                     // offset 0x11C
   uint32_t anim_max_length;                           // offset 0x120
   uint32_t airborne_start;                            // offset 0x124
   uint32_t airborne_end;                              // offset 0x128
@@ -267,7 +267,7 @@ struct tk_dialogue
 
 struct tk_moveset
 {
-  uint16_t _0x0;
+  uint16_t disable_anim_lookup;
   bool is_written;
   bool _0x3;
   uint32_t _0x4;
@@ -283,7 +283,7 @@ struct tk_moveset
   uint32_t ordinal_id1;                          // Concatenation of previous Character ID, for Kazuya (8) -> (-7 & 7)
   uint32_t ordinal_id2;                          // Concatenation of Character ID, for Kazuya (8) -> (-8 & 8)
   tk_reaction *reactions_ptr;                    // Offset: 0x168
-  uint64_t _0x170;                               // No clue why it's here but it's here
+  uint64_t string_block_end_offset;              // Offset: 0x170
   uint64_t reactions_count;                      // Offset: 0x178
   tk_requirement *requirements_ptr;              // Offset: 0x180
   uint64_t requirements_count;                   // Offset: 0x188
