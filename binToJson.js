@@ -572,7 +572,7 @@ function readMotbinFile(reader, animKeys = []) {
     if (!StructFn) throw Error("A Struct Function is Required");
     const [start, count] = getStartAndCount(offset);
     // print(hex(start), count);
-    if (start !== 0) reader.seek(start);
+    if (start !== 0 && count > 0) reader.seek(start);
     let readCount = 0;
     for (let i = 0; i < count; i++) {
       const value =
