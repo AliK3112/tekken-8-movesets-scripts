@@ -364,3 +364,25 @@ struct TK__FOOTER
   uint64_t someOtherOffset;     // 0x38 - Another offset, Value is always tocOffset-0x10.
   uint32_t _0x40[16];
 };
+
+// TK7 mothead vbn files
+struct TK__ArmatureBone {
+  char name[0x40];
+  uint32_t _0x40;
+  int parentBoneId; // 0x44
+  uint32_t _0x48;   // looks like some hex value
+}; // size 0x4C
+
+struct TK__Vbn {
+  char sig[4]; // " VBN". Yes, 1st byte is space
+  uint16_t _0x4; // Always 2
+  uint16_t _0x6; // Always 1
+  uint32_t numBones;
+  uint32_t _0x0C; // Always 138, 151 only for "nsa"
+  uint32_t _0x10; // Mostly 5
+  uint32_t _0x14; // Always 34
+  uint32_t _0x18; // Mostly 0
+  TK__ArmatureBone bones[1]; // 0x1C - obviously, "numBones" elements
+  // TODO: Add floats that start from here and last till end of the file
+  // Dividing the size of float chunk by numBones gives 36, ALWAYS!
+};
