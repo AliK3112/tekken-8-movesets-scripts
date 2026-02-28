@@ -5,6 +5,21 @@ class BinaryFileReader {
     this.pointer = 0 // Keeps track of the current byte position
   }
 
+  /**
+   * Opens a file from the given path and returns a BinaryFileReader instance.
+   * @param {string} filePath - The path to the file.
+   * @returns {BinaryFileReader}
+   */
+  static open(filePath) {
+    const fs = require("fs")
+    const buffer = fs.readFileSync(filePath)
+    const arrayBuffer = buffer.buffer.slice(
+      buffer.byteOffset,
+      buffer.byteOffset + buffer.byteLength
+    )
+    return new BinaryFileReader(arrayBuffer)
+  }
+
   // Methods to adjust the seeker in the file
   seek(position) {
     if (position >= 0 && position < this.buffer.byteLength) {
@@ -233,6 +248,18 @@ class BinaryFileReader {
   // Helper method to check if the end of the file/buffer has been reached
   isEOF() {
     return this.pointer >= this.buffer.byteLength
+  }
+
+  /**
+   * Clears the file buffer to free up memory.
+   * Note: The `open` method reads the entire file synchronously into memory, 
+   * so no OS file descriptors are strictly kept open. This method is provided 
+   * simply to aid garbage collection for large files.
+   */
+  close() {
+    this.buffer = null
+    this.view = null
+    this.pointer = 0
   }
 }
 
