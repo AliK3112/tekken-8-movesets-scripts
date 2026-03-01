@@ -131,16 +131,6 @@ function buildReactionsDictionary(reader) {
     for (let j = 0; j < 14; j++) {
       const id = reader.readUInt16(addr + 0x50 + 2 * j);
       if (!dict[j].includes(id)) dict[j].push(id);
-      // if ([1, 3, 5, 7, 9].includes(j)) {
-      //   if (!dict[3].includes(id)) dict[3].push(id);
-      // }
-      // else if (j === 10 || j === 11) {
-      //   if (!dict[1].includes(id)) dict[1].push(id);
-      // } else if (j >= 12) {
-      //   if (!dict[2].includes(id)) dict[2].push(id);
-      // } else {
-      //   if (!dict[0].includes(id)) dict[0].push(id);
-      // }
     }
   }
   return dict;
@@ -242,9 +232,6 @@ function moveIsAnAttack(reader, moveAddr, moveIdx) {
     if (REACTIONS_DICT[j].includes(moveIdx))
       return "REACTION: " + REACTION_LABELS[j];
   }
-  // if (REACTIONS_DICT[1].includes(moveIdx)) return "BLOCK REACTION";
-  // if (REACTIONS_DICT[2].includes(moveIdx)) return "DOWN REACTION";
-  // if (REACTIONS_DICT[3].includes(moveIdx)) return "CROUCH REACTION";
   return "";
 }
 
@@ -281,6 +268,21 @@ function readMoves(reader, animKeysArray = []) {
     }
   };
 
+  const readArray = (offset, size = 8) => {
+    const integers = [];
+    for (let i = 0; i < size; i++) {
+      integers.push(reader.readUInt32(offset + i * 4));
+    }
+    return integers;
+  };
+  const readDecodedValue = (offset, idx) => {
+    const integers = readArray(offset, KEYS.length);
+    for (let i = 0; i < KEYS.length; i++) {
+      integers[i] = (integers[i] ^ KEYS[i]) >>> 0;
+    }
+    return integers[idx % KEYS.length];
+  };
+
   // console.log(aliases);
 
   // Dictionary
@@ -312,6 +314,7 @@ function readMoves(reader, animKeysArray = []) {
   const OFFSET_NAME_KEY = 0x00;
   const OFFSET_ANIM_NAME_KEY = 0x20;
   const OFFSET_ANIM_KEY = 0x50;
+  const OFFSET_HURT_BOX = 0x58;
   const OFFSET_HITLEVEL = 0x78;
   const OFFSET_ORDINAL1 = 0xd0;
   const OFFSET_ORDINAL2 = 0xf0;
@@ -334,12 +337,13 @@ function readMoves(reader, animKeysArray = []) {
 
     // TRYING TO DECRYPT THE MOVE NAME FIELD FROM RAW BYTE FILE
     const bytes = reader.readArrayOfBytes(MOVE_SIZE, addr);
-    const nameKey = decryptBytes(bytes, OFFSET_NAME_KEY, i);
-    const animNameKey = decryptBytes(bytes, OFFSET_ANIM_NAME_KEY, i);
+    const nameKey = readDecodedValue(addr + OFFSET_NAME_KEY, i);
+    const animNameKey = readDecodedValue(addr + OFFSET_ANIM_NAME_KEY, i);
     const animKey = reader.readInt32(addr + OFFSET_ANIM_KEY);
-    const hitlevel = decryptBytes(bytes, OFFSET_HITLEVEL, i);
-    const ordinal1 = decryptBytes(bytes, OFFSET_ORDINAL1, i);
-    const ordinal2 = decryptBytes(bytes, OFFSET_ORDINAL2, i);
+    const hitlevel = readDecodedValue(addr + OFFSET_HITLEVEL, i);
+    const vuln = readDecodedValue(addr + OFFSET_HURT_BOX, i);
+    const ordinal1 = readDecodedValue(addr + OFFSET_ORDINAL1, i);
+    const ordinal2 = readDecodedValue(addr + OFFSET_ORDINAL2, i);
     const voiceclip = Number(reader.readInt64(addr + 0x130));
 
     const offset1 = readMoveNameOffset(addr);
@@ -367,18 +371,20 @@ function readMoves(reader, animKeysArray = []) {
     // if (animKeysArray[i]) printf(` ${_hex(animKeysArray[i])}`);
     // printf(` ${_hex(offset1)}`)
     // printf(` ${_hex(offset2)}`);
-    // printf(` ${_hex(hitlevel)}`)
+    printf(` ${_hex(hitlevel)}`)
+    printf(` ${_hex(vuln)}`)
     printf(printn(nameLength));
     printf(printn(animLength));
-    printf(printn(cancelFrame, 6));
+    // printf(printn(cancelFrame, 6));
     // printf(` ${_hex(ordinal1)}`);
     // printf(` ${_hex(ordinal2)}`);
     let name = namesDict[nameKey];
-    name = name ? name + " " : "-";
-    printf(` ${name.padEnd(27, " ")}`);
-    const status = moveIsAnAttack(reader, addr, i);
-    if (status) printf(printn(status));
-    if (getAliasId(i)) printf(` (${getAliasId(i)})`);
+    printf(` ${name ? name : "-"}`);
+    // name = name ? name + " " : "-";
+    // printf(` ${name.padEnd(35, " ")}`);
+    // const status = moveIsAnAttack(reader, addr, i);
+    // if (status) printf(printn(status));
+    // if (getAliasId(i)) printf(` (${getAliasId(i)})`);
     // printf(` ${voiceclip}`);
     // printf(` ${cancelFrame}`);
     printf("\n");
