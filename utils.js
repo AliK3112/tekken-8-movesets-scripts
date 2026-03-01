@@ -256,20 +256,11 @@ const KEYS = [
   0x7def1f1c, 0x7ee2bc2c,
 ];
 
-const getByte = (value, byteNumber) => (value >>> (byteNumber * 8)) & 0xff;
-
-const decryptBytes = (moveBytes, attributeOffset, moveIdx) => {
-  let currentOffset = attributeOffset;
-  for (let j = 0; j < KEYS.length; j++) {
-    const key = KEYS[j];
-    for (let k = 0; k < 4; k++) {
-      moveBytes[currentOffset + k] ^= getByte(key, k);
-    }
-    currentOffset += 4;
+const readDecodedValue = (values, moveIdx) => {
+  for (let i = 0; i < KEYS.length; i++) {
+    values[i] = (values[i] ^ KEYS[i]) >>> 0;
   }
-  return Buffer.from(moveBytes).readUInt32LE(
-    attributeOffset + 4 * (moveIdx % 8),
-  );
+  return values[moveIdx % KEYS.length];
 };
 
 // ---- Helpers ----
@@ -309,45 +300,37 @@ const TK__MoveUnknown = (c, pos) => ({
 
 // ---- Main struct ----
 
-const TK__Move = (c, pos, i) => {
+const TK__Move = (c, pos) => {
   const readEncrypted = (off) => TK__Encrypted(c, pos + off).value;
 
   const readLong = (offset) => Number(c.readInt64(offset));
 
-  const bytes = c.readArrayOfBytes(0x448, pos);
-  const nameKey = decryptBytes(bytes, 0x0, i);
-  const animKey = decryptBytes(bytes, 0x20, i);
-  const hurtbox = decryptBytes(bytes, 0x58, i);
-  const hitLevel = decryptBytes(bytes, 0x78, i);
-  const ordinal1 = decryptBytes(bytes, 0xd0, i);
-  const ordinal2 = decryptBytes(bytes, 0xf0, i);
-
   const move = {
-    index: i,
-    name_key: nameKey,
-    // name_key_related: Array.from({ length: 4 }, (_, i) =>
-    //   c.readUInt32(pos + 0x10 + i * 4)
-    // ),
+    index: null,
+    name_key: null,
+    name_key_related: Array.from({ length: 8 }, (_, i) =>
+      c.readUInt32(pos + i * 4)
+    ),
 
-    anim_name_key: animKey,
-    // anim_name_key_related: Array.from({ length: 4 }, (_, i) =>
-    //   c.readUInt32(pos + 0x30 + i * 4)
-    // ),
+    anim_name_key: null,
+    anim_name_key_related: Array.from({ length: 8 }, (_, i) =>
+      c.readUInt32(pos + 0x20 + i * 4)
+    ),
 
     name_idx: readLong(pos + 0x40),
     anim_name_idx: readLong(pos + 0x48),
     anim_key1: c.readUInt32(pos + 0x50),
     anim_key2: c.readUInt32(pos + 0x54),
 
-    hit_level: hitLevel,
-    // hit_level_related: Array.from({ length: 4 }, (_, i) =>
-    //   c.readUInt32(pos + 0x68 + i * 4)
-    // ),
+    hit_level: null,
+    hit_level_related: Array.from({ length: 8 }, (_, i) =>
+      c.readUInt32(pos + 0x58 + i * 4)  
+    ),
 
-    vuln: hurtbox,
-    // vuln_related: Array.from({ length: 4 }, (_, i) =>
-    //   c.readUInt32(pos + 0x88 + i * 4)
-    // ),
+    vuln: null,
+    vuln_related: Array.from({ length: 8 }, (_, i) =>
+      c.readUInt32(pos + 0x78 + i * 4)
+    ),
 
     cancel_idx: readLong(pos + 0x98),
     cancel1_idx: readLong(pos + 0xa0),
@@ -361,15 +344,15 @@ const TK__Move = (c, pos, i) => {
     transition: c.readUInt16(pos + 0xcc),
     _0xCE: c.readUInt16(pos + 0xce),
 
-    ordinal_id1: ordinal1,
-    // ordinal_id1_related: Array.from({ length: 4 }, (_, i) =>
-    //   c.readUInt32(pos + 0xE0 + i * 4)
-    // ),
+    ordinal_id1: null,
+    ordinal_id1_related: Array.from({ length: 8 }, (_, i) =>
+      c.readUInt32(pos + 0xD0 + i * 4)
+    ),
 
-    ordinal_id2: ordinal2,
-    // ordinal_id2_related: Array.from({ length: 4 }, (_, i) =>
-    //   c.readUInt32(pos + 0x100 + i * 4)
-    // ),
+    ordinal_id2: null,
+    ordinal_id2_related: Array.from({ length: 8 }, (_, i) =>
+      c.readUInt32(pos + 0xF0 + i * 4)
+    ),
 
     hit_condition_idx: readLong(pos + 0x110),
     _0x118: c.readUInt32(pos + 0x118),
@@ -429,7 +412,23 @@ function readMovesList(reader) {
   const array = [];
   for (let i = 0; i < count; i++) {
     const addr = start + i * 0x448;
-    const move = reader.read((c) => TK__Move(c, addr, i));
+    const move = reader.read(TK__Move, addr);
+
+    // Post-processing
+    move.index = i;
+    move.name_key = readDecodedValue(move.name_key_related, i);
+    move.anim_name_key = readDecodedValue(move.anim_name_key_related, i);
+    move.hit_level = readDecodedValue(move.hit_level_related, i);
+    move.vuln = readDecodedValue(move.vuln_related, i);
+    move.ordinal_id1 = readDecodedValue(move.ordinal_id1_related, i);
+    move.ordinal_id2 = readDecodedValue(move.ordinal_id2_related, i);
+
+    delete move.name_key_related;
+    delete move.anim_name_key_related;
+    delete move.hit_level_related;
+    delete move.vuln_related;
+    delete move.ordinal_id1_related;
+    delete move.ordinal_id2_related;
 
     const offset1 = move.name_idx;
     const offset2 = move.anim_name_idx;
