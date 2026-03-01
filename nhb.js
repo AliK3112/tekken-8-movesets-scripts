@@ -1,3 +1,5 @@
+// This JS file is for reading .vbn files from Tekken 7's "tkdata > mothead > nua" folder
+
 const fs = require("fs");
 const BinaryFileReader = require("./binaryFileReader");
 const print = console.log;
@@ -86,6 +88,15 @@ function processVbnFile(filePath) {
     const rawParent = reader.readUInt32(offset + 0x44);
     const _0x48 = reader.readUInt32(offset + 0x48);
 
+    const floats = [];
+    for (let j = 0; j < 9; j++) {
+      // 0x1c + bonesCount * 0x4c is the offset of the first float
+      // i * 36 is the offset of the first float of the i-th bone
+      // j * 4 is the offset of the j-th float of the i-th bone
+      const floatOffset = (0x1c + bonesCount * 0x4c) + (i * 36) + (j * 4);
+      floats.push(reader.readFloat32(floatOffset));
+    }
+
     bones.push({
       index: i,
       offset,
@@ -94,6 +105,7 @@ function processVbnFile(filePath) {
       rawParent,
       parentIndex: rawParent === 0x0fffffff ? -1 : rawParent,
       _0x48,
+      floats,
     });
   }
 
@@ -120,11 +132,12 @@ function processVbnFile(filePath) {
       // `Index: ${bone.index}`,
       `0x40: ${bone._0x40}`,
       `0x48: ${hex(bone._0x48)}`,
-      boneStr,
+      boneStr.padEnd(64, " "),
       // `Name: ${bone.name}`,
       // `ParentIndex: ${bone.parentIndex}`,
       // `ParentName: ${parent}`,
       // `RawParent(0x44): ${hex(bone.rawParent)}`,
+      bone.floats.map((f) => f.toFixed(4)).join(", "),
     ].join(" | ");
 
     lines.push(line);
@@ -132,6 +145,11 @@ function processVbnFile(filePath) {
 
   // Print to console
   // print(lines.join("\n"));
+
+  // const diff = fileSize - floatBlock;
+  // print(hex(floatBlock));
+  // print(diff);
+  // print(diff / bonesCount / 4);
 
   // Draw tree
   const treeLines = drawTree(bones);
@@ -150,7 +168,7 @@ function processVbnFile(filePath) {
       processVbnFile(`nua/${file}`);
     }
   }
-  // processVbnFile("nua/dvj.vbn");
+  // processVbnFile("nua/aki.vbn");
 })();
 
 /**
