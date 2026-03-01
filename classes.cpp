@@ -373,6 +373,23 @@ struct TK__ArmatureBone {
   uint32_t _0x48;   // looks like some hex value
 }; // size 0x4C
 
+struct Vector {
+  float x, y, z;
+};
+
+struct TK__ArmatureBoneFloats {
+  // Read them as either 9 floats or 3 vectors
+  union {
+    float floats[9];
+
+    struct {
+      Vector vector1;
+      Vector vector2;
+      Vector vector3;
+    };
+  };
+};
+
 struct TK__Vbn {
   char sig[4]; // " VBN". Yes, 1st byte is space
   uint16_t _0x4; // Always 2
@@ -383,6 +400,5 @@ struct TK__Vbn {
   uint32_t _0x14; // Always 34
   uint32_t _0x18; // Mostly 0
   TK__ArmatureBone bones[1]; // 0x1C - obviously, "numBones" elements
-  // TODO: Add floats that start from here and last till end of the file
-  // Dividing the size of float chunk by numBones gives 36, ALWAYS!
+  TK__ArmatureBoneFloats floats[1]; // "numBones" elements
 };
