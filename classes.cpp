@@ -156,8 +156,8 @@ struct tk_move
   tk_encrypted anim_name_key;        // offset 0x20
   uint32_t anim_name_key_related[4]; // offset 0x30
 
-  uint32_t *name_addr;      // offset 0x40 - no longer used
-  uint32_t *anim_name_addr; // offset 0x48 - no longer used
+  char *name_addr;      // offset 0x40 - no longer used, points to "?"
+  char *anim_name_addr; // offset 0x48 - no longer used, points to "?"
   uint32_t anim_key1;       // offset 0x50
   uint32_t anim_key2;       // offset 0x54
 
@@ -401,4 +401,21 @@ struct TK__Vbn {
   uint32_t _0x18; // Mostly 0
   TK__ArmatureBone bones[1]; // 0x1C - obviously, "numBones" elements
   TK__ArmatureBoneFloats floats[1]; // "numBones" elements
+};
+
+// Example class is of 0x17 bones
+struct TK__MotBinAnimC8_Frame {
+  Vector bones[];
+};
+
+// T7 Frame-by-Frame (FBF) animation
+struct TK__MotBinAnimC8 {
+  // Anim Header
+  uint16_t sig; // 0x00. 0xC8 or 0x64
+  uint16_t numBones; // 0x02. Generally 17.
+  uint32_t numFrames; // 0x04
+  // Descriptions
+  uint32_t descriptions[1]; // 0x08 - 0x08 + numBones * 4 - 4. numBones descriptors
+  // Animation Data
+  TK__MotBinAnimC8_Frame frames[];
 };
