@@ -21,9 +21,9 @@ uintptr_t readOffsetFromInstr(uintptr_t instrAddr, int instrLen)
   return instrAddr + instrLen + game.readUInt32(instrAddr + 3) - game.getBaseAddress();
 }
 
-uintptr_t readOffsetFromInstr(uintptr_t instrAddr)
+uintptr_t readOffsetFromInstr2(uintptr_t instrAddr, int offset = 3)
 {
-  return game.readUInt32(instrAddr + 3);
+  return game.readUInt32(instrAddr + offset);
 }
 
 int main()
@@ -65,13 +65,13 @@ int main()
     // Moveset Offset
     addr = scanForOffset(Tekken::MOVSET_OFFSET_SIG_BYTES, game.getBaseAddress() + 0x1800000);
     printf("moveset_offset_addr_offset=0x%llX\n", addr);
-    printf("moveset_offset=0x%llX\n", readOffsetFromInstr(addr + base));
+    printf("moveset_offset=0x%llX\n", readOffsetFromInstr2(addr + base));
 
     // Devil Flag Offset
-    addr = scanForOffset(Tekken::DEVIL_FLAG_SIG_BYTES, game.getBaseAddress() + 0x2C00000);
+    addr = scanForOffset(Tekken::DEVIL_FLAG_SIG_BYTES, game.getBaseAddress() + 0x1900000);
     // addr = game.readInt32(addr + 3);
     printf("permanent_devil_offset_addr_offset=0x%llX\n", addr);
-    printf("permanent_devil_offset=0x%llX\n", readOffsetFromInstr(addr + base));
+    printf("permanent_devil_offset=0x%llX\n", readOffsetFromInstr2(addr + base, 2));
 
     auto end = std::chrono::high_resolution_clock::now(); // End timer
 
