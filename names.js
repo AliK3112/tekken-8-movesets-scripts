@@ -249,7 +249,7 @@ function readMoves(reader, animKeysArray = []) {
 
   print("Character Name Length: ", creatorNameOffset - charNameOffset - 1n);
   print("Creator Name Length: ", dateOffset - creatorNameOffset - 1n);
-  print("Some Hash?:", hex(reader.readInt32(0x4)));
+  print("Compile Date:", (reader.readInt32(0x4)));
   // print("Character Name Offset: ", charNameOffset);
   // print("Creator Name Offset: ", creatorNameOffset);
 
@@ -308,7 +308,7 @@ function readMoves(reader, animKeysArray = []) {
 
   const start = getStart(0x230) + 0x318;
   const count = getCount(0x238);
-  print(hexLong(start), count);
+  print("Moves Count:", count);
   const MOVE_SIZE = 0x448;
   // const MOVE_SIZE = 0x3a0; // For v1.00
   const OFFSET_NAME_KEY = 0x00;
@@ -363,48 +363,30 @@ function readMoves(reader, animKeysArray = []) {
     // hashesDict[nameKey] ??= { count: 0, length: nameLength };
     // hashesDict[nameKey].count++;
 
-    printf(printn(i));
-    // printf(` ${nameKey}`)
-    printf(` ${_hex(nameKey)}`);
-    printf(` ${_hex(animNameKey)}`);
-    // printf(` ${_hex(animKey)}`);
-    // if (animKeysArray[i]) printf(` ${_hex(animKeysArray[i])}`);
-    // printf(` ${_hex(offset1)}`)
-    // printf(` ${_hex(offset2)}`);
-    printf(` ${_hex(hitlevel)}`)
-    printf(` ${_hex(vuln)}`)
-    printf(printn(nameLength));
-    printf(printn(animLength));
-    // printf(printn(cancelFrame, 6));
-    // printf(` ${_hex(ordinal1)}`);
-    // printf(` ${_hex(ordinal2)}`);
-    let name = namesDict[nameKey];
-    printf(` ${name ? name : "-"}`);
-    // name = name ? name + " " : "-";
-    // printf(` ${name.padEnd(35, " ")}`);
-    // const status = moveIsAnAttack(reader, addr, i);
-    // if (status) printf(printn(status));
-    // if (getAliasId(i)) printf(` (${getAliasId(i)})`);
-    // printf(` ${voiceclip}`);
-    // printf(` ${cancelFrame}`);
-    printf("\n");
-    // printf(bytes.map(x => hex(+x, 2)).join(", "))
+    const status = moveIsAnAttack(reader, addr, i);
+    const aliasId = getAliasId(i);
+    const moveName = namesDict[nameKey] ? namesDict[nameKey] : "-";
+    const animName = namesDict[animNameKey] ? namesDict[animNameKey] : "-";
+    const padLen = 26;
+    const paddedName = moveName.padEnd(padLen, " ");
+    const paddedAnimName = animName.padEnd(padLen, " ");
+
+    const values = [
+      printn(i),
+      hex(nameKey),
+      hex(animNameKey),
+      // hex(animKey),
+      printn(nameLength),
+      printn(animLength),
+      // moveName,
+      paddedName,
+      paddedAnimName,
+      status,
+      aliasId ? printn(aliasId) : "",
+    ].filter(Boolean);
+
+    print(values.join(" "));
   }
-}
-
-function decryptAttackType(value) {
-  const toBytes = (num) => Array.from(Buffer.from(Uint32Array.of(num).buffer));
-  const fromBytes = (bytes) =>
-    new DataView(Uint8Array.from(bytes).buffer).getUint32(0, true);
-
-  // let res = ((value ^ 0x1d) << 0x1c) / 0x10
-  // if (res < 0) res = -res
-  let res = (value ^ 0x1d) << 0x1c;
-  res = Math.floor(res / 0x10);
-  const bytes = toBytes(res);
-  bytes.reverse();
-  print(toBytes(res), bytes);
-  return fromBytes(bytes);
 }
 
 function readAnims(file) {
@@ -476,7 +458,7 @@ function main() {
 
     // Print to console for progress monitoring
     console.log(
-      `Extracting: ${file} [${charId}] -> ${outputFile}. ${hex(someHash)}`,
+      `Extracting: ${file} [${charId}] -> ${outputFile}. ${someHash}`,
     );
 
     // Redirect output to file
@@ -491,8 +473,8 @@ function main() {
       outStream.write(args.join(""));
     };
 
-    // const animKeysArray = readAnims(animFile);
-    const animKeysArray = [];
+    const animKeysArray = readAnims(animFile);
+    // const animKeysArray = [];
     readMoves(reader, animKeysArray);
 
     // Cleanup and restore
