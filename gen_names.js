@@ -3,8 +3,8 @@ const Hash = require("./hash");
 const BinaryFileReader = require("./binaryFileReader");
 const { readMovesList, hex } = require("./utils");
 
-const FILE = "xxf";
-const PREFIX = "Xf_";
+const FILE = "dog";
+const PREFIX = "dog";
 const POSTFIX = "";
 const DEPTH = 2;
 const PATH = `./Binary/mothead/bin/${FILE}.motbin`;
@@ -12,6 +12,11 @@ const DICT_PATH = "./name_keys.json";
 const DICT = require(DICT_PATH);
 const MOVES_DICT = {};
 const NAME_KEY_SET = new Set();
+//
+const NAME_KEY = "name_key";
+const ANIM_NAME_KEY = "anim_name_key";
+const KEY = ANIM_NAME_KEY;
+const LEN_KEY = KEY === NAME_KEY ? "name_length" : "anim_name_length";
 
 const print = console.log;
 const hash = (value) => hex(Hash.computeKamuiHash(value));
@@ -26,12 +31,25 @@ const addToDict = (string, hashedValue, foundMove) => {
   if (
     foundMove &&
     !DICT[+hashedValue] &&
-    foundMove?.name_length === string.length
+    foundMove?.[LEN_KEY] === string.length
   ) {
     DICT[hashedValue] = string;
     print(string, hex(hashedValue));
   }
 };
+
+const SET_SMALL = "abcdefghijklmnopqrstuvwxyz0123456789_";
+
+// Helper to generate all combinations of a given length from chars
+function* generateSuffixes(chars, length, prefix = "") {
+  if (length === 0) {
+    yield prefix;
+    return;
+  }
+  for (const c of chars) {
+    yield* generateSuffixes(chars, length - 1, prefix + c);
+  }
+}
 
 /**
  * @param {any[]} moves
@@ -61,7 +79,7 @@ function generateThrowNames(moves) {
     const values = [n, y, Escn, Escy];
     for (const value of values) {
       const hashed = Number(Hash.computeKamuiHash(value));
-      const found = moves.find((move) => move.name_key === hashed);
+      const found = moves.find((move) => move[KEY] === hashed);
       addToDict(value, hashed, found);
     }
   }
@@ -167,6 +185,19 @@ function generateMovements(moves) {
       addToDict(value, hashed, MOVES_DICT[hashed]);
     }
   }
+
+  if (KEY !== ANIM_NAME_KEY) return;
+
+  const helperFn = (string) => {
+    const hashed = Number(Hash.computeKamuiHash(string));
+    if (NAME_KEY_SET.has(hashed)) {
+      addToDict(string, hashed, MOVES_DICT[hashed]);
+    }
+  };
+
+  generateSuffixes(SET_SMALL, 2).forEach((gen) => { // beekw_co_kamae
+    helperFn(PREFIX + gen + "_co_kamae");
+  });
 }
 
 /**
@@ -204,6 +235,26 @@ function generateHeatAndRageMoves(moves) {
       addToDict(value, hashed, MOVES_DICT[hashed]);
     }
   }
+
+  if (KEY !== ANIM_NAME_KEY) return;
+
+  const helperFn = (string) => {
+    const hashed = Number(Hash.computeKamuiHash(string));
+    if (NAME_KEY_SET.has(hashed)) {
+      addToDict(string, hashed, MOVES_DICT[hashed]);
+    }
+  };
+
+  for (const gen of generateSuffixes(SET_SMALL, 2)) {
+    helperFn(PREFIX + gen + "_ra_pre");
+    helperFn(PREFIX + gen + "_ra_finish_f");
+    helperFn(PREFIX + gen + "_ra_finish_y");
+    helperFn(PREFIX + gen + "_ra_finish_ko_f");
+    helperFn(PREFIX + gen + "_ra_finish_ko_y");
+    helperFn(PREFIX + gen + "_ra_pre_story");
+    helperFn(PREFIX + gen + "_ra_finish_story_f");
+    helperFn(PREFIX + gen + "_ra_finish_story_y");
+  }
 }
 
 /**
@@ -211,15 +262,20 @@ function generateHeatAndRageMoves(moves) {
  * @param {string} prefix
  */
 function generateCodeNameStrings(moves, prefix = PREFIX) {
+  const helperFn = (string) => {
+    const hashed = Number(Hash.computeKamuiHash(string));
+    const found = moves.find((move) => move[KEY] === hashed);
+    addToDict(string, hashed, found);
+  };
+
   const strings = Array(10)
     .fill(0)
     .map((_, i) => i.toString().padStart(2, "0"));
+
   for (const string of strings) {
-    const value = (prefix + "rs" + string).toLowerCase();
-    const hashed = Number(Hash.computeKamuiHash(value));
-    const found = moves.find((move) => move.name_key === hashed);
-    addToDict(value, hashed, found);
+    helperFn((prefix + "rs" + string).toLowerCase());
   }
+
   // Customization Poses
   ["CUS_KAM", "CUS_TPOSE"].forEach((code) => {
     const value = prefix + code;
@@ -227,6 +283,15 @@ function generateCodeNameStrings(moves, prefix = PREFIX) {
     if (NAME_KEY_SET.has(hashed)) {
       addToDict(value, hashed, MOVES_DICT[hashed]);
     }
+  });
+
+  if (KEY !== ANIM_NAME_KEY) return;
+
+  [0, 1, 2, 3, 4, 98, 99].forEach((i) => {
+    const postfix = i.toString().padStart(2, "0");
+    helperFn(prefix + "sta_" + postfix);
+    helperFn(prefix + "win_" + postfix);
+    helperFn(prefix + "win_" + postfix + "_y");
   });
 }
 
@@ -258,15 +323,14 @@ function trySuffixVariants(baseStrings) {
 }
 
 (() => {
-  // const hashes = readBin().filter(hash => [5, 6].includes(hash.name_length));
   const moves = readBin();
 
   // Create a Set of the name_keys from the hashes for O(1) lookups
   // Setting it up globally
   NAME_KEY_SET.clear();
   for (const move of moves) {
-    MOVES_DICT[move.name_key] = move;
-    NAME_KEY_SET.add(move.name_key);
+    MOVES_DICT[move[KEY]] = move;
+    NAME_KEY_SET.add(move[KEY]);
   }
 
   generateThrowNames(moves);
@@ -279,7 +343,7 @@ function trySuffixVariants(baseStrings) {
     .map((x) => x.toString())
     .concat("");
   let inputs = ["LP", "RP", "LK", "RK", "WP", "WK", "s", ""];
-  // inputs = inputs.map((x) => x.toLowerCase());
+  inputs = inputs.map((x) => x.toLowerCase());
   const prefix = PREFIX;
   const postfix = POSTFIX;
 
@@ -316,7 +380,7 @@ function trySuffixVariants(baseStrings) {
   hashCombinations.forEach(({ string, hashed }) => {
     if (NAME_KEY_SET.has(+hashed)) {
       // Checking if the length matches the target string
-      if (!DICT[+hashed] && MOVES_DICT[+hashed].name_length === string.length) {
+      if (!DICT[+hashed] && MOVES_DICT[+hashed][LEN_KEY] === string.length) {
         DICT[+hashed] = string;
         print(string, hashed);
         discoveredStrings.push(string);
