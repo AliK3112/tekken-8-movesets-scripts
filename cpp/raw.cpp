@@ -28,7 +28,8 @@ int main()
     scanAddresses();
 
     int player = 0;
-    uintptr_t rawMoveset = getRawMovesetAddress(player, RawFile::Address);
+    // uintptr_t rawMoveset = getRawMovesetAddress(player, RawFile::Address);
+    uintptr_t rawMoveset = 0x2433E0000;
     // uintptr_t fileSize = getRawMovesetAddress(player, RawFile::Size);
     // printf("0x%llx %d bytes\n", rawMoveset, fileSize);
     // return 0;
@@ -37,6 +38,7 @@ int main()
     uintptr_t movelist = game.readUInt64(moveset + Tekken::Offsets::MovesHeader);
     int count = game.readUInt64(moveset + Tekken::Offsets::MovesCount);
     uintptr_t addr = movelist;
+    uintptr_t stringBlockEnd = game.readUInt64(moveset + 0x170);
     EncryptedValue encrypted;
 
     auto calcOffset = [&](uintptr_t relativeAddr) -> uintptr_t
@@ -63,7 +65,7 @@ int main()
       uintptr_t off = calcOffset(addr + 0x48);
       int nameLen = game.readUInt64(off) - game.readUInt64(calcOffset(addr + 0x40));
 
-      int animNameLen = game.readUInt64(count - 1 > i ? off + 0x448 : off) - game.readUInt64(off);
+      int animNameLen = game.readUInt64(count - 1 > i ? off + 0x448 : stringBlockEnd) - game.readUInt64(off);
 
       encrypted = game.read<EncryptedValue>(addr + 0xD0);
       int ordinalId1 = Tekken::validateAndTransform64BitValue(&encrypted);
@@ -81,7 +83,7 @@ int main()
       printf("0x%.8x ", ordinalId1);
       printf("0x%.8x ", ordinalId2);
       printf("\n");
-      // if (i >= 11) break;
+      // if (i >= 200) break;
     }
   }
   return 0;
