@@ -104,3 +104,103 @@ function main() {
 }
 
 main();
+
+// anim.js
+// const fs = require("fs");
+
+// const FOLDER_PATH = "Binary/mothead/bin";
+// const HEADER_SIZE = 56;
+
+// const print = console.log;
+// const hex = (x, len = 8) => x.toString(16).padStart(len, "0");
+// const hexL = (x, len = 16) => x.toString(16).padStart(len, "0");
+
+// function processAnimBin(filePath) {
+//   const fd = fs.readFileSync(filePath);
+
+//   const poolCounts = [];
+//   for (let i = 0; i < 6; i++) {
+//     poolCounts.push(fd.readUInt32LE(0x4 + i * 4));
+//   }
+
+//   const keyCounts = [];
+//   for (let i = 0; i < 6; i++) {
+//     keyCounts.push(fd.readUInt32LE(0x1c + i * 4));
+//   }
+
+//   const poolOffsets = [];
+//   for (let i = 0; i < 6; i++) {
+//     poolOffsets.push(fd.readBigUInt64LE(0x38 + i * 8));
+//   }
+
+//   const listOffsets = [];
+//   for (let i = 0; i < 6; i++) {
+//     listOffsets.push(fd.readBigUInt64LE(0x68 + i * 8));
+//   }
+
+//   // Printing
+//   let offset = 0;
+//   print(hex(offset), hex(fd.readUint32LE(offset)));
+//   offset += 4;
+
+//   for (let i = 0; i < 6; i++) {
+//     print(hex(offset), hex(poolCounts[i]));
+//     offset += 4;
+//   }
+
+//   for (let i = 0; i < 6; i++) {
+//     print(hex(offset), hex(keyCounts[i]));
+//     offset += 4;
+//   }
+
+//   print(hex(offset), hex(fd.readUint32LE(offset)));
+//   offset += 4;
+
+//   for (let i = 0; i < 6; i++) {
+//     print(hex(offset), hexL(poolOffsets[i]));
+//     offset += 8;
+//   }
+
+//   for (let i = 0; i < 6; i++) {
+//     print(hex(offset), hexL(listOffsets[i]));
+//     offset += 8;
+//   }
+
+//   for (let i = 0; i < 6; i++) {
+//     const startOffset = Number(poolOffsets[i]);
+//     for (let j = 0; j < poolCounts[i]; j++) {
+//       const offset = startOffset + j * HEADER_SIZE;
+//       const values = Array(HEADER_SIZE / 4)
+//         .fill(0)
+//         .map((_, k) => fd.readUInt32LE(offset + 4 * k));
+//       print(hex(offset), values.map((x) => hex(x)).join(" "));
+//     }
+//   }
+
+//   for (let i = 0; i < 6; i++) {
+//     const startOffset = Number(listOffsets[i]);
+//     for (let j = 0; j < keyCounts[i]; j++) {
+//       const offset = startOffset + j * 4;
+//       print(hex(offset), hex(fd.readUint32LE(offset)));
+//     }
+//   }
+// }
+
+// function main() {
+//   const charCode = process.argv[2];
+
+//   if (!charCode) {
+//     print("Please provide a character code");
+//     return;
+//   }
+
+//   const file = fs
+//     .readdirSync(FOLDER_PATH)
+//     .filter((file) => file.endsWith(".anmbin"))
+//     .find((file) => file.includes(charCode));
+
+//   const fullPath = `${FOLDER_PATH}/${file}`;
+//   processAnimBin(fullPath);
+// }
+
+// main();
