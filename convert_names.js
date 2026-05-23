@@ -6,7 +6,7 @@ const { readMovesList } = require("./utils");
 const PARENT_DIR = "./Binary/mothead/bin";
 const TYPES = ["at", "gd", "dm", "it", "ra", "co", "un", "th"];
 const NAME_KEYS = require("./name_keys.json");
-const CHARCODE = "xxa";
+const CHARCODE = "ant";
 const OLDCODE = "jz";
 const print = console.log;
 const hex = (x) => ("0x" + x.toString(16).padStart(8, "0"));
@@ -16,6 +16,15 @@ function main() {
 
 
   const t7AnimNames = require("./anim_names.json");
+  // const moveset = require("./tag2_JUN_KAZAMA.json");
+  // const t7AnimNames = moveset.moves.reduce((acc, move) => {
+  //   const aName = move.anim_name.replace("(DVD)", "").trim();
+  //   acc[aName] ??= [];
+  //   if (!acc[aName].includes(move.name)) {
+  //     acc[aName].push(move.name);
+  //   }
+  //   return acc;
+  // }, {});
 
   let counter = 0;
 
@@ -28,39 +37,44 @@ function main() {
     const reader = BinaryFileReader.open(filePath);
 
     const moves = readMovesList(reader);
+    const animNameLenDict = moves.reduce((acc, move) => {
+      acc[move.anim_name_key] = move.anim_name_length;
+      return acc;
+    }, {});
 
     const oldAnimNames = Object.keys(t7AnimNames);
 
     const charCode = CHARCODE;
     const oldCode = OLDCODE;
 
+    const func = (input, suffix, animName) => {
+      if (!input) return;
+      for (const type of TYPES) {
+        const newAnimName = input + "_" + type + "_" + suffix.join("_");
+        const hash = computeKamuiHash(newAnimName);
+        const len = animNameLenDict[hash];
+        if (len === newAnimName.length && !NAME_KEYS[hash]) {
+          counter++;
+          // NAME_KEYS[hash] = newAnimName;
+          print(
+            `Found match for ${animName} -> ${newAnimName} (hash: ${hex(hash)})`
+          );
+        }
+      }
+    };
+
     for (const animName of oldAnimNames) {
       const [prefix, ...suffix] = animName.split("_");
       let input = "";
       if (prefix.startsWith(oldCode)) {
-        input = prefix.replace(oldCode, charCode);
+        func(prefix.replace(oldCode, charCode), suffix, animName);
       } else if (prefix.endsWith(oldCode)) {
-        // E.g, "kohe_fer2genko"
+        // E.g, "kohe_fer2genko" -> beeko_at_fer2genko
         // In this case, "he" will become "bee" but it needs to be placed in the beginning
-        input = charCode + prefix.replace(oldCode, "");
-      }
+        func(charCode + prefix.replace(oldCode, ""), suffix, animName);
 
-      // Only proceed if the input exists
-      if (input) {
-        for (const type of TYPES) {
-          const newAnimName = input + "_" + type + "_" + suffix.join("_");
-          const hash = computeKamuiHash(newAnimName);
-
-          const move = moves.find((move) => move.anim_name_key === hash);
-
-          if (move && move.anim_name_length === newAnimName.length && !NAME_KEYS[hash]) {
-            counter++;
-            NAME_KEYS[hash] = newAnimName;
-            print(
-              `Found match for ${animName} -> ${newAnimName} (hash: ${hex(hash)})`
-            );
-          }
-        }
+        // E.g, "ozjn_shin_f" -> "jnob_at_shin_f"
+        func(oldCode + prefix.replace(oldCode, ""), suffix, animName);
       }
     }
 
