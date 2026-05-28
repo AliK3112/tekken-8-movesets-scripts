@@ -159,13 +159,8 @@ function verifyChecksum(buffer, targetChecksum) {
 
 function readMapping() {
   try {
-    const buffer = readFileSync("./tkdata_mapping.txt", "utf-8");
-    const lines = buffer.trim().split("\n").filter(Boolean);
-    return lines.reduce((obj, line) => {
-      const [hash, name] = line.trim().split(":");
-      obj[+hash.trim()] = name.trim();
-      return obj;
-    }, {});
+    const nameKeys = require("./name_keys.json");
+    return nameKeys;
   } catch {
     return {}; 
   }
