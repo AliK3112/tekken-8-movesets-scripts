@@ -13,6 +13,8 @@ const END_REQ = 1100;
 let MOVESET = {};
 let LOG = true;
 
+const MULTI_OPP_PROP1 = 505; // Is Opponent
+const MULTI_OPP_PROP2 = 506; // Is Not Opponent
 const print = (...args) => console.log(...args);
 const printf = (...args) => process.stdout.write(args.join(" "));
 const printn = (num, length = 5) => num.toString().padStart(length, " ");
@@ -35,6 +37,8 @@ const reqMapping = {
   225: "Not Player",
   226: "Opponent",
   227: "Not Opponent",
+  [MULTI_OPP_PROP1]: "Opponent",
+  [MULTI_OPP_PROP2]: "Not Opponent",
   667: "Story Mode",
   668: "Story Fight",
   755: "Player?",
@@ -45,11 +49,22 @@ const reqMapping = {
   804: "Side",
 };
 
-const characterReqs = [220, 221, 222, 223, 224, 225, 226, 227, 755];
+const characterReqs = [220, 221, 222, 223, 224, 225, 226, 227, MULTI_OPP_PROP1, MULTI_OPP_PROP2, 755];
 
 const tk_charId = (c) => ({
   value: (c.readInt32(0x160) - 1) / 0xffff,
   size: 4,
+});
+
+const tk_requirment = (ctx, pos) => ({
+  value: {
+    req: ctx.readUInt32(pos),
+    param: ctx.readUInt32(pos + 4),
+    param2: ctx.readUInt32(pos + 8),
+    param3: ctx.readUInt32(pos + 12),
+    param4: ctx.readUInt32(pos + 16),
+  },
+  size: 20,
 });
 
 const getMainStoryFightId = (battleId) => {
@@ -84,48 +99,46 @@ function getRequirements(reqIdx) {
   return reqList;
 }
 
-function createReqMessage(req, param) {
+const formatCharName = (id) => getCharacterName(id).slice(1, -1);
+
+const PARAM_HANDLERS = {
+  668: ({ param }) => getMainStoryFightId(param),
+  802: ({ param }) => getDlcStoryFightId(param),
+  804: ({ param }) => (param === 1 ? "Left" : "Right"),
+  // Multi-character requirements
+  multiChar: (reqObj) => ['param', 'param2', 'param3', 'param4']
+    .map(key => reqObj[key])
+    .filter(val => val !== undefined)
+    .map(formatCharName)
+    .join(", ")
+};
+
+function createReqMessage(requirement) {
+  const { req, param } = requirement;
   if (!req) return "";
-  let reqMsg = req >= 0x8000 ? hex(req, 4) : req;
-  reqMsg = reqMapping[req] ?? reqMsg;
+
+  const reqMsg = reqMapping[req] ?? (req >= 0x8000 ? hex(req, 4) : req);
   let paramMsg = param;
+
   if (characterReqs.includes(req)) {
-    paramMsg = getCharacterName(param).slice(1, -1);
-  } else if (req === 668) {
-    paramMsg = getMainStoryFightId(param);
-  } else if (req === 802) {
-    paramMsg = getDlcStoryFightId(param);
-  } else if (req === 804) {
-    paramMsg = param === 1 ? "Left" : "Right";
+    paramMsg = (req === MULTI_OPP_PROP1 || req === MULTI_OPP_PROP2)
+      ? PARAM_HANDLERS.multiChar(requirement)
+      : formatCharName(param);
+  } else if (PARAM_HANDLERS[req]) {
+    paramMsg = PARAM_HANDLERS[req](requirement);
   }
+
   return `(${reqMsg}, ${paramMsg})`;
 }
 
 function makeReqsMessage(requirements) {
   const string = requirements.reduce((acc, requirement) => {
-    const { req, param } = requirement;
-    if (req) {
-      acc.push(createReqMessage(req, param));
+    if (requirement.req) {
+      acc.push(createReqMessage(requirement));
     }
     return acc;
   }, []);
   return string.length ? string.join(", ") : "N/A";
-}
-
-function listDialogues() {
-  MOVESET.dialogues.forEach((dialog, i) => {
-    const type = typeMapping[dialog.type];
-    const id = dialog.id;
-    const vclip = dialog.voiceclip_key;
-    const animIdx = toSignedInt32(dialog.facial_anim_idx);
-    const requirements = getRequirements(dialog.requirement_idx);
-    const msg1 = `${padR(type)} ${padL(id, 3)} ${hex(vclip)} ${padL(
-      animIdx,
-      4
-    )}`;
-    const msg2 = makeReqsMessage(requirements);
-    print(`  ${msg1} - ${msg2}`);
-  });
 }
 
 const getStart = (reader, offset) => Number(reader.readUInt64(offset)) + 0x318;
@@ -144,14 +157,11 @@ function getRequirements(reader, reqIdx) {
   const values = [];
   for (let i = reqIdx; i < count; i++) {
     const addr = start + i * 20;
-    const req = reader.readInt32(addr);
-    const param = reader.readInt32(addr + 4);
+    const requirement = reader.read(tk_requirment, addr);
 
-    if (req === 1100) break;
-
-    // const [req, ...params] = [0, 1, 2, 3, 4].map(off => reader.readInt32(addr + off * 4));
-    if (req) {
-      values.push(createReqMessage(req, param));
+    if (requirement.req === 1100) break;
+    if (requirement.req) {
+      values.push(createReqMessage(requirement));
     }
   }
   return values.length ? values.join(", ") : "N/A";
@@ -164,9 +174,7 @@ function processFile(reader) {
   const dlgStart = getStart(reader, 0x2a0);
   const dlgCount = getCount(reader, 0x2a8);
 
-  // const dict = require("./name_keys.json");
-  // dict[0x88e3ee99] = "None";
-  const dict = {};
+  const dict = require("./name_keys.json");
 
   for (let i = 0; i < dlgCount; i++) {
     const addr = dlgStart + i * 24;
@@ -181,11 +189,10 @@ function processFile(reader) {
     if (dict[vclip]) {
       printf(` CLIP: ${printn(dict[vclip], 25)} |`);
     } else {
-      printf(` CLIP: ${printn(hex(vclip), 10)} |`);
+      printf(` CLIP: ${printn(hex(vclip), 25)} |`);
     }
     printf(` ANM: ${printn(fanm, 3)} |`);
     printf(` Requirements: ${getRequirements(reader, reqIdx)}`);
-    // printf(` REQ_IDX: ${reqIdx}`);
     print();
   }
   print();
@@ -209,12 +216,8 @@ function main() {
     if (LOG) {
       const charId = reader.read(tk_charId);
       print(path, getCharacterName(charId), "-", charId);
-      // const code = path.replace(".motbin", "");
-      // print(`"${code}": ${charId},`);
     }
     processFile(reader);
-    // MOVESET = moveset
-    // listDialogues()
   });
 }
 
