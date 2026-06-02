@@ -6,22 +6,32 @@ $outputFile = "results.txt"
 
 $codes = @(
     "am",
+    "az",
     "cb",
+    "co",
     "dz",
+    "et",
     "gs",
     "ha",
     "hg",
     "hi",
     "hk",
+    "hr",
     "ik",
     "is",
     "kb",
+    "kc",
+    "ke",
     "kj",
     "km",
     "ko",
+    "kt",
     "kw",
     "kz",
+    "mb",
     "Mo",
+    "mo",
+    "Ms",
     "ms",
     "mx",
     "na",
@@ -45,19 +55,49 @@ $codes = @(
     "yg",
     "yk",
     "yo",
-    "yt"
+    "yt",
+    "A",
+    "B",
+    "C",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J",
+    "K",
+    "M",
+    "N",
+    "O",
+    "R",
+    "S",
+    "T",
+    "V",
+    "Y",
+    "Z"
 )
 
 $patterns = @()
 
-foreach ($code in $codes) {
-    $patterns += "com${code}_dm_y_[a-z0-9_]{6}"
-    $patterns += "cmn${code}_dm_y_[a-z0-9_]{6}"
-    # $patterns += "grl${code}_un_[a-z0-9_]{5}"
-    # $patterns += "grl${code}_th_[a-z0-9_]{5}"
+$charCodes = @("rbt") # 3-letter char codes
+# $subCodes = @("dm", "at", "th", "co", "un", "ra", "gd", "it")
+$subCodes = @("at", "co")
+
+foreach ($charCode in $charCodes) {
+    foreach ($code in $codes) {
+       foreach ($sub in $subCodes) {
+            if ($code.Length -eq 1) {
+                # "?xxx_yy_*"
+                $patterns += "${code}${charCode}_${sub}_[A-Za-z0-9_]{4}"
+            } else {
+                # "xxx??_yy_*"
+                $patterns += "${charCode}${code}_${sub}_[A-Za-z0-9_]{3}"
+            }
+        }
+    }
 }
 
-$targetHash = "0xcfb9cd11"
+$targetHash = "0x518a7b83"
 
 foreach ($pattern in $patterns) {
     Write-Host "Processing pattern: $pattern" -ForegroundColor Cyan
