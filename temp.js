@@ -210,16 +210,25 @@ const tk_charId = (c) => ({
 
     for (const gen of generateSuffixes(SET_SMALL, 2)) {
       addToDict(code + gen + "_co_kamae");
+      addToDict(code + gen + "_co_kiai");
+      addToDict(code + gen + "_at_kiai");
+      addToDict(code + gen + "_co_sit");
+      addToDict(code + gen + "_co_fstep");
+      addToDict(code + gen + "_co_bstep");
       addToDict(code + gen + "_co_step_b");
       addToDict(code + gen + "_co_step_l");
       addToDict(code + gen + "_co_step_r");
       addToDict(code + gen + "_co_crouch");
       addToDict(code + gen + "_co_crouchf");
+      addToDict(code + gen + "_co_crouchb");
       addToDict(code + gen + "_co_walkf");
       addToDict(code + gen + "_co_syagami");
       addToDict(code + gen + "_co_stand");
       addToDict(code + gen + "_co_standb");
       addToDict(code + gen + "_co_standf");
+      addToDict(code + gen + "_co_turnr");
+      addToDict(code + gen + "_co_turnl");
+
       addToDict(code + gen + "_ra_pre");
       addToDict(code + gen + "_ra_finish_f");
       addToDict(code + gen + "_ra_finish_y");
@@ -228,6 +237,7 @@ const tk_charId = (c) => ({
       addToDict(code + gen + "_ra_pre_story");
       addToDict(code + gen + "_ra_finish_story_f");
       addToDict(code + gen + "_ra_finish_story_y");
+
       addToDict(code + gen + "_at_drive");
       addToDict(code + gen + "_at_zd");
       addToDict(code + gen + "_at_zd_miss");
@@ -252,18 +262,21 @@ const tk_charId = (c) => ({
       addToDict(code + gen + "_at_rk00");
       addToDict(code + gen + "_at_lp00");
       addToDict(code + gen + "_at_rp00");
+
       addToDict(code + gen + "_at_cr3lp");
       addToDict(code + gen + "_at_cr3rp");
       addToDict(code + gen + "_at_cr3lk");
       addToDict(code + gen + "_at_cr3rk");
       addToDict(code + gen + "_at_cr3wp");
       addToDict(code + gen + "_at_cr3wk");
+
       addToDict(code + gen + "_at_stlp");
       addToDict(code + gen + "_at_strp");
       addToDict(code + gen + "_at_stlk");
       addToDict(code + gen + "_at_strk");
       addToDict(code + gen + "_at_stwp");
       addToDict(code + gen + "_at_stwk");
+
       addToDict(code + gen + "_at_sylp");
       addToDict(code + gen + "_at_syrp");
       addToDict(code + gen + "_at_sylk");
