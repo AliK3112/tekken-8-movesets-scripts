@@ -1,5 +1,3 @@
-const fs = require("fs");
-
 const C1 = 0xCC9E2D51;
 const C2 = 0x1B873593;
 
@@ -220,11 +218,14 @@ function computeKamuiHash(str) {
 module.exports = { computeKamuiHash };
 
 if (require.main === module) {
+    const fs = require("fs");
     const arg = process.argv[2];
-    const addToNameKeys = process.argv.includes("--add");
+    console.log("arg: %s", arg);
+    const addToNameKeys = process.argv[3] === "1" || process.argv.includes("--add");
     if (arg) {
         const hash = computeKamuiHash(arg);
         console.log("0x" + hash.toString(16).padStart(8, "0"));
+        // console.log(hash);
         if (addToNameKeys) {
             const nameKeys = require("./name_keys.json");
             if (nameKeys[hash]) {
