@@ -1,11 +1,14 @@
 const fs = require("fs");
-const { getCharacterName, hex, CODE_MAPPING } = require("./utils");
+const { getCharacterName, CODE_MAPPING } = require("./utils");
 const BinaryFileReader = require("./binaryFileReader");
 // This script is for an attempt to try and understand move names
 
 /**
  * 1457 Kz_sKAM00_ - key: 0x1606e24f, ordinal_id1: 0x7fff9 ordinal_id2: 0x1497714a
  */
+
+const hex = (num, length = 8) => "0x" + Number(num).toString(16).padStart(length, "0");
+const Hex = (num, length = 8) => hex(num, length).replace("0x", "").toUpperCase();
 
 const KEYS = [
   0x964f5b9e, 0xd88448a2, 0xa84b71e0, 0xa27d5221, 0x9b81329f, 0xadfb76c8,
@@ -375,7 +378,7 @@ function readMoves(reader, animKeysArray = []) {
       printn(i),
       hex(nameKey),
       hex(animNameKey),
-      // hex(animKey),
+      Hex(animKeysArray[animKey]),
       printn(nameLength),
       printn(animLength),
       // moveName,
@@ -413,7 +416,6 @@ const tk_charId = (c) => ({
 });
 
 function main() {
-  // const folder = "./extracted_chars_2_08";
   const folder = "./Binary/mothead/bin";
   const outputFolder = "./output";
 
