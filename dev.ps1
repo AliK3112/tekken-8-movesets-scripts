@@ -18,6 +18,7 @@ $codes = @(
     "hk",
     "hr",
     "ik",
+    "in",
     "is",
     "kb",
     "kc",
@@ -35,6 +36,7 @@ $codes = @(
     "ms",
     "mx",
     "na",
+    "nb",
     "nk",
     "no",
     "nt",
@@ -59,6 +61,7 @@ $codes = @(
     "A",
     "B",
     "C",
+    "D",
     "E",
     "F",
     "G",
@@ -73,15 +76,17 @@ $codes = @(
     "S",
     "T",
     "V",
+    "W",
+    "X",
     "Y",
     "Z"
 )
 
 $patterns = @()
 
-$charCodes = @("rbt") # 3-letter char codes
-# $subCodes = @("dm", "at", "th", "co", "un", "ra", "gd", "it")
-$subCodes = @("at", "co")
+$charCodes = @("com", "cmn") # 3-letter char codes
+$subCodes = @("dm", "at", "th", "co", "un", "ra", "gd", "it")
+# $subCodes = @("co")
 
 foreach ($charCode in $charCodes) {
     foreach ($code in $codes) {
@@ -91,13 +96,13 @@ foreach ($charCode in $charCodes) {
                 $patterns += "${code}${charCode}_${sub}_[A-Za-z0-9_]{4}"
             } else {
                 # "xxx??_yy_*"
-                $patterns += "${charCode}${code}_${sub}_[A-Za-z0-9_]{3}"
+                $patterns += "${charCode}${code}_${sub}_[A-Za-z0-9_]{3}std_torun"
             }
         }
     }
 }
 
-$targetHash = "0x518a7b83"
+$targetHash = "0xe7accd68"
 
 foreach ($pattern in $patterns) {
     Write-Host "Processing pattern: $pattern" -ForegroundColor Cyan
