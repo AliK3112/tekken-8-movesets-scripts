@@ -15,7 +15,7 @@ const NAME_KEY_SET = new Set();
 //
 const NAME_KEY = "name_key";
 const ANIM_NAME_KEY = "anim_name_key";
-const KEY = ANIM_NAME_KEY;
+const KEY = NAME_KEY;
 const LEN_KEY = KEY === NAME_KEY ? "name_length" : "anim_name_length";
 
 const print = console.log;
@@ -285,6 +285,13 @@ function generateCodeNameStrings(moves, prefix = PREFIX) {
     }
   });
 
+  [0, 1, 2, 3, 4, 98, 99].forEach((i) => {
+    const postfix = i.toString().padStart(2, "0");
+    helperFn(prefix + "s" + postfix);
+    helperFn(prefix + "w" + postfix);
+    helperFn(prefix + "w" + postfix + "_y");
+  });
+
   if (KEY !== ANIM_NAME_KEY) return;
 
   [0, 1, 2, 3, 4, 98, 99].forEach((i) => {
@@ -310,6 +317,13 @@ function trySuffixVariants(baseStrings) {
     "EX2",
     "_Lv2",
     "_Lv3",
+    "_hit",
+    "_crh",
+    "2nd",
+    "3rd",
+    "4th",
+    "5th",
+    "6th",
   ];
   for (const base of baseStrings) {
     for (const suffix of suffixes) {
@@ -343,7 +357,7 @@ function trySuffixVariants(baseStrings) {
     .map((x) => x.toString())
     .concat("");
   let inputs = ["LP", "RP", "LK", "RK", "WP", "WK", "s", ""];
-  inputs = inputs.map((x) => x.toLowerCase());
+  // inputs = inputs.map((x) => x.toLowerCase());
   const prefix = PREFIX;
   const postfix = POSTFIX;
 
