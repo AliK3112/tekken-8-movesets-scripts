@@ -95,12 +95,14 @@ const tk_charId = (c) => ({
 
       addToDict(code + gen + "_at_drive");
       addToDict(code + gen + "_at_zd");
+      addToDict(code + gen + "_at_zd_gd");
       addToDict(code + gen + "_at_zd_miss");
       addToDict(code + gen + "_th_zd_f");
       addToDict(code + gen + "_th_zd_y");
       addToDict(code + gen + "_th_zd_hit_f");
       addToDict(code + gen + "_th_zd_hit_y");
       addToDict(code + gen + "_at_hs");
+      addToDict(code + gen + "_at_hs_gd");
       addToDict(code + gen + "_at_hs_miss");
       addToDict(code + gen + "_th_hs_f");
       addToDict(code + gen + "_th_hs_y");
@@ -108,6 +110,8 @@ const tk_charId = (c) => ({
       addToDict(code + gen + "_th_hs_hit_y");
       addToDict(code + gen + "_at_hs_hit_f");
       addToDict(code + gen + "_at_hs_hit_y");
+      addToDict(code + gen + "_th_heat_f");
+      addToDict(code + gen + "_th_heat_y");
 
       addToDict(code + gen + "_at_lp");
       addToDict(code + gen + "_at_rp");
