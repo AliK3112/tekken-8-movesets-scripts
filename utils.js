@@ -442,10 +442,10 @@ function readMovesList(reader) {
       animLength = stringBlockEnd - offset2;
     }
     animLength--;
-    // console.log(move);
     array.push({
       ...move,
       name: DICT[move.name_key],
+      anim_name: DICT[move.anim_name_key],
       name_length: nameLength,
       anim_name_length: animLength,
     });
