@@ -8,7 +8,7 @@ const print = console.log;
 const hex = (value, length = 2) =>
   "0x" + value.toString(16).padStart(length, "0");
 
-const FILE = "ker";
+const FILE = "der";
 
 (() => {
   // restoreNames();
@@ -31,7 +31,7 @@ const FILE = "ker";
     const move = moves[i];
     if (!move.name) continue;
 
-    const prefixes = ["_hit", "_wall", "_armor", "2nd", "3rd", "_n", "_y", "_Turn", "_put", "_guard", "_Back", "_end", "_shoryu"];
+    const prefixes = ["_hit", "_wall", "_armor", "2nd", "3rd", "_n", "_y", "_Turn", "_put", "_guard", "_Back", "_end", "_shoryu", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"];
 
     for (const prefix of prefixes) {
       let storyName;
