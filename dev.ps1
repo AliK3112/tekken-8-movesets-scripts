@@ -30,9 +30,8 @@ $codes = @(
     "kw",
     "kz",
     "mb",
-    "Mo",
+    "mg",
     "mo",
-    "Ms",
     "ms",
     "mx",
     "na",
@@ -52,7 +51,6 @@ $codes = @(
     "tb",
     "tg",
     "to",
-    "XX",
     "ya",
     "yg",
     "yk",
@@ -72,9 +70,12 @@ $codes = @(
     "M",
     "N",
     "O",
+    "P",
+    "Q",
     "R",
     "S",
     "T",
+    "U",
     "V",
     "W",
     "X",
@@ -82,27 +83,34 @@ $codes = @(
     "Z"
 )
 
+# $codes = @("kw", "mg")
+
 $patterns = @()
 
-$charCodes = @("com", "cmn") # 3-letter char codes
-$subCodes = @("dm", "at", "th", "co", "un", "ra", "gd", "it")
+$charCodes = @("cat", "com", "cmn") # 3-letter char codes
+# $subCodes = @("dm", "at", "th", "co", "un", "ra", "gd", "it")
+# $subCodes = @("at", "co", "un", "th")
+$subCodes = @("at", "it", "un", "co", "th")
 # $subCodes = @("co")
 
+$targetHash = "0x8e2c930d"
+
 foreach ($charCode in $charCodes) {
-    foreach ($code in $codes) {
-       foreach ($sub in $subCodes) {
-            if ($code.Length -eq 1) {
-                # "?xxx_yy_*"
-                $patterns += "${code}${charCode}_${sub}_[A-Za-z0-9_]{4}"
-            } else {
-                # "xxx??_yy_*"
-                $patterns += "${charCode}${code}_${sub}_[A-Za-z0-9_]{3}std_torun"
-            }
-        }
+  foreach ($code in $codes) {
+    foreach ($sub in $subCodes) {
+      if ($code.Length -eq 1) {
+        # "?xxx_yy_*"
+        # $patterns += "${code}${charCode}_${sub}_[a-z0-9_]{6}"
+        # $patterns += "${code}_${sub}_[A-Za-z0-9_]{6}"
+      } else {
+        # "xxx??_yy_*"
+        $patterns += "${charCode}${code}_${sub}_[a-z0-9_]{4}kami"
+      }
     }
+  }
 }
 
-$targetHash = "0xe7accd68"
+# 0x41a56b0f: kgrkb_at_hm_dagar
 
 foreach ($pattern in $patterns) {
     Write-Host "Processing pattern: $pattern" -ForegroundColor Cyan
