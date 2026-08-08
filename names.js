@@ -1,11 +1,119 @@
 const fs = require("fs");
+const get = require("lodash/get");
 const { getCharacterName, CODE_MAPPING } = require("./utils");
 const BinaryFileReader = require("./binaryFileReader");
-// This script is for an attempt to try and understand move names
 
-/**
- * 1457 Kz_sKAM00_ - key: 0x1606e24f, ordinal_id1: 0x7fff9 ordinal_id2: 0x1497714a
- */
+const IS_CNT = false;
+
+const OFFSETS = {
+  retail: {
+    BASE: 0x318,
+    CHARID: 0x160,
+    LIST: {
+      ALIAS: 0x30,
+      REACTIONS_START: 0x168,
+      STRING_BLOCK_END: 0x170,
+      REACTIONS_COUNT: 0x178,
+      REQUIREMENTS_START: 0x180,
+      REQUIREMENTS_COUNT: 0x188,
+      CANCELS_START: 0x1d0,
+      CANCELS_COUNT: 0x1d8,
+      GROUP_CANCELS_START: 0x1e0,
+      GROUP_CANCELS_COUNT: 0x1e8,
+      CANCEL_EXTRADATA_START: 0x1f0,
+      CANCEL_EXTRADATA_COUNT: 0x1f8,
+      EXTRA_MOVE_PROPERTIES_START: 0x200,
+      EXTRA_MOVE_PROPERTIES_COUNT: 0x208,
+      MOVES_START: 0x230,
+      MOVES_COUNT: 0x238,
+    },
+    MOVE: {
+      NAME_KEY: 0x0,
+      ANIM_NAME_KEY: 0x20,
+      NAME: 0x40,
+      ANIM_NAME: 0x48,
+      ANIM_KEY: 0x50,
+      HURT_BOX: 0x58,
+      HITLEVEL: 0x78,
+      CANCEL_IDX: 0x98,
+      ORDINAL1: 0xd0,
+      ORDINAL2: 0xf0,
+      VOICECLIP: 0x130,
+      STARTUP: 0x158,
+      RECOVERY: 0x15c,
+      HITBOX: 0x160,
+    },
+  },
+  cnt: {
+    BASE: 0x310,
+    CHARID: 0x154,
+    LIST: {
+      ALIAS: 0x30,
+      REACTIONS_START: 0x160,
+      STRING_BLOCK_END: 0x168,
+      REACTIONS_COUNT: 0x170,
+      REQUIREMENTS_START: 0x178,
+      REQUIREMENTS_COUNT: 0x180,
+      CANCELS_START: 0x1c8,
+      CANCELS_COUNT: 0x1d0,
+      GROUP_CANCELS_START: 0x1d8,
+      GROUP_CANCELS_COUNT: 0x1e0,
+      CANCEL_EXTRADATA_START: 0x1e8,
+      CANCEL_EXTRADATA_COUNT: 0x1f0,
+      EXTRA_MOVE_PROPERTIES_START: 0x1f8,
+      EXTRA_MOVE_PROPERTIES_COUNT: 0x200,
+      MOVES_START: 0x228,
+      MOVES_COUNT: 0x230,
+    },
+    MOVE: {
+      NAME_KEY: 0x0,
+      ANIM_NAME_KEY: 0x4,
+      NAME: 0x8,
+      ANIM_NAME: 0x10,
+      ANIM_KEY: 0x18,
+      HURT_BOX: 0x20,
+      HITLEVEL: 0x24,
+      CANCEL_IDX: 0x28,
+      ORDINAL1: 0x60,
+      ORDINAL2: 0x64,
+      VOICECLIP: 0x88,
+      STARTUP: 0xB0,
+      RECOVERY: 0xB4,
+      HITBOX: 0xB8,
+    },
+  },
+};
+
+const SIZES = {
+  retail: {
+    LIST: {
+      ALIAS: 60,
+    },
+    MOVE: {
+      BASE: 0x448,
+      HITBOX: 48,
+    }
+  },
+  cnt: {
+    LIST: {
+      ALIAS: 57,
+    },
+    MOVE: {
+      BASE: 0x380,
+      HITBOX: 44,
+    }
+  }
+};
+
+const getOffset = (key, version = IS_CNT ? "cnt" : "retail") => {
+  if (!["retail", "cnt"].includes(version)) return null;
+  return get(OFFSETS, [version, ...key.split(".")], 0);
+};
+
+const getSize = (key, version = IS_CNT ? "cnt" : "retail") => {
+  if (!["retail", "cnt"].includes(version)) return null;
+  return get(SIZES, [version, ...key.split(".")], 0);;
+};
 
 const hex = (num, length = 8) => "0x" + Number(num).toString(16).padStart(length, "0");
 const Hex = (num, length = 8) => hex(num, length).replace("0x", "").toUpperCase();
@@ -47,22 +155,13 @@ const readTxt = (path) => {
 };
 
 const buildDict = () => {
-  // const lines = readTxt("./kaz.txt");
-  // return lines.reduce((obj, line) => {
-  //   const [name, hash] = line.split(" ");
-  //   obj[+hash.trim()] = name.trim();
-  //   return obj;
-  // }, {});
   try {
     return require("./name_keys.json");
   } catch {
     return {};
   }
-  // return require("./merged_name_keys.json")
 };
 
-// const printf = (...args) => process.stdout.write(args.join(" "));
-// const print = (...args) => console.log(...args);
 const printn = (num, length = 5) => num.toString().padStart(length, " ");
 const _hex = (x) => (x !== null ? hex(x).toLowerCase() : "null");
 const hexLong = (num) => hex(num, 16).toLowerCase();
@@ -83,12 +182,12 @@ const tk_cancel = (context, position) => ({
     command: context.readUInt64(position),
     extradata_idx: convertPtrToIdx(
       context.readUInt64(position + 16),
-      context.readUInt64(0x1f0),
+      context.readUInt64(getOffset("LIST.CANCEL_EXTRADATA_START")),
       4,
     ),
     requirement_idx: convertPtrToIdx(
       context.readUInt64(position + 8),
-      context.readUInt64(0x180),
+      context.readUInt64(getOffset("LIST.REQUIREMENTS_START")),
       20,
     ),
     frame_window_start: context.readUInt32(position + 24),
@@ -105,9 +204,9 @@ const tk_cancel = (context, position) => ({
  */
 function getRecoveryFrame(reader, moveIdx, move) {
   const readLong = (offset) => Number(reader.readUInt64(offset));
-  const cIndex = Number(Buffer.from(move).readBigUInt64LE(0x98));
-  const start = readLong(0x1d0) + 0x318;
-  const end = readLong(0x1e0) + 0x318;
+  const cIndex = Number(Buffer.from(move).readBigUInt64LE(getOffset("MOVE.CANCEL_IDX")));
+  const start = readLong(getOffset("LIST.CANCELS_START")) + getOffset("BASE");
+  const end = readLong(getOffset("LIST.GROUP_CANCELS_START")) + getOffset("BASE");
   const size = 40;
   let cOffset = start + cIndex * size;
   if (cOffset >= start && cOffset < end) {
@@ -126,9 +225,12 @@ function getRecoveryFrame(reader, moveIdx, move) {
  * @param {BinaryFileReader} reader
  */
 function buildReactionsDictionary(reader) {
+  const readLong = (offset) => Number(reader.readUInt64(offset));
+
   const dict = Array.from({ length: 14 }, () => []);
-  const start = Number(reader.readUInt64(0x168)) + 0x318;
-  const count = Number(reader.readUInt64(0x178));
+  const start = readLong(getOffset("LIST.REACTIONS_START")) + getOffset("BASE");
+  const count = readLong(getOffset("LIST.REACTIONS_COUNT"));
+
   for (let i = 0; i < count; i++) {
     const addr = start + i * 0x70;
     for (let j = 0; j < 14; j++) {
@@ -146,11 +248,11 @@ function buildForcedMovesDictionary(reader) {
   const dict = [];
   let start = 0,
     count = 0;
-  const getStart = (offset) => Number(reader.readUInt64(offset)) + 0x318;
+  const getStart = (offset) => Number(reader.readUInt64(offset)) + getOffset("BASE");
   const getCount = (offset) => Number(reader.readUInt64(offset));
 
-  start = getStart(0x180);
-  count = getCount(0x188);
+  start = getStart(getOffset("LIST.REQUIREMENTS_START"));
+  count = getCount(getOffset("LIST.REQUIREMENTS_COUNT"));
   // Iterating requirements
   for (let i = 0; i < count; i++) {
     const addr = start + i * 20;
@@ -159,8 +261,8 @@ function buildForcedMovesDictionary(reader) {
     if (req === 0x8244 && !dict.includes(param)) dict.push(param);
   }
 
-  start = getStart(0x200);
-  count = getCount(0x208);
+  start = getStart(getOffset("LIST.EXTRA_MOVE_PROPERTIES_START"));
+  count = getCount(getOffset("LIST.EXTRA_MOVE_PROPERTIES_COUNT"));
   // Iterating extraprops
   for (let i = 0; i < count; i++) {
     const addr = start + i * 40;
@@ -171,24 +273,16 @@ function buildForcedMovesDictionary(reader) {
   return dict;
 }
 
-const getIdFromName = (name) => {
-  if (typeof name !== "string") return "";
-  const num = name.split("_").at(1);
-  return isNaN(+num) ? -1 : +num;
-};
-
 const decryptBytes = (moveBytes, attributeOffset, moveIdx) => {
+  if (IS_CNT) {
+    return Buffer.from(moveBytes).readUInt32LE(attributeOffset);
+  }
   let currentOffset = attributeOffset;
   for (let j = 0; j < KEYS.length; j++) {
     const key = KEYS[j];
     for (let k = 0; k < 4; k++) {
       moveBytes[currentOffset + k] ^= getByte(key, k);
     }
-    // const keyBytes = [0, 1, 2, 3].map((i) => getByte(key, i));
-    // moveBytes[currentOffset + 0] ^= keyBytes[0];
-    // moveBytes[currentOffset + 1] ^= keyBytes[1];
-    // moveBytes[currentOffset + 2] ^= keyBytes[2];
-    // moveBytes[currentOffset + 3] ^= keyBytes[3];
     currentOffset += 4;
   }
   return Buffer.from(moveBytes).readUInt32LE(
@@ -201,7 +295,7 @@ const decryptBytes = (moveBytes, attributeOffset, moveIdx) => {
  */
 function moveHasHitbox(reader, moveAddr) {
   for (let i = 0; i < 8; i++) {
-    const hitboxAddr = moveAddr + 0x160 + 48 * i;
+    const hitboxAddr = moveAddr + getOffset("MOVE.HITBOX") + getSize("MOVE.HITBOX") * i;
     const startup = reader.readInt32(hitboxAddr);
     const recovery = reader.readInt32(hitboxAddr + 4);
     const hitbox = reader.readInt32(hitboxAddr + 8);
@@ -216,10 +310,10 @@ function moveHasHitbox(reader, moveAddr) {
 function moveIsAnAttack(reader, moveAddr, moveIdx) {
   if (moveHasHitbox(reader, moveAddr)) return "ATTACK";
   // Check if it's a throw
-  const startup = reader.readInt32(moveAddr + 0x158);
-  const recovery = reader.readInt32(moveAddr + 0x15c);
-  const bytes = reader.readArrayOfBytes(0x448, moveAddr);
-  const hitlevel = decryptBytes(bytes, 0x78, moveIdx) & 0xfff;
+  const startup = reader.readInt32(moveAddr + getOffset("MOVE.STARTUP"));
+  const recovery = reader.readInt32(moveAddr + getOffset("MOVE.RECOVERY"));
+  const bytes = reader.readArrayOfBytes(getSize("MOVE.BASE"), moveAddr);
+  const hitlevel = decryptBytes(bytes, getOffset("MOVE.HITLEVEL"), moveIdx) & 0xfff;
   if (hitlevel === 0xa00) {
     if (REACTIONS_DICT[0].includes(moveIdx)) return "THROW REACTION";
     return "THROW";
@@ -240,15 +334,16 @@ function moveIsAnAttack(reader, moveAddr, moveIdx) {
 
 /**
  * @param {BinaryFileReader} reader
+ * @param {number} charId
  * @param {number[]} animKeysArray
  */
-function readMoves(reader, animKeysArray = []) {
-  print(getCharacterName(reader));
+function readMoves(reader, charId, animKeysArray = []) {
+  print(getCharacterName(charId));
 
   const charNameOffset = reader.readUInt64(0x10);
   const creatorNameOffset = reader.readUInt64(0x18);
   const dateOffset = reader.readUInt64(0x20);
-  const stringBlockEnd = reader.readInt(0x170);
+  const stringBlockEnd = reader.readInt(getOffset("LIST.STRING_BLOCK_END"));
 
   print("Character Name Length: ", creatorNameOffset - charNameOffset - 1n);
   print("Creator Name Length: ", dateOffset - creatorNameOffset - 1n);
@@ -256,13 +351,9 @@ function readMoves(reader, animKeysArray = []) {
   // print("Character Name Offset: ", charNameOffset);
   // print("Creator Name Offset: ", creatorNameOffset);
 
-  const aliases = Array(60)
+  const aliases = Array(getSize("LIST.ALIAS"))
     .fill(0)
-    .map((_, i) => reader.readUInt16(0x30 + i * 2));
-  // .reduce((dict, alias, i) => {
-  //   dict[alias] = 0x8000 + i;
-  //   return dict;
-  // }, {});
+    .map((_, i) => reader.readUInt16(getOffset("LIST.ALIAS") + i * 2));
 
   const getAliasId = (mIdx) => {
     const idx = aliases.findIndex((x) => x === mIdx);
@@ -278,7 +369,11 @@ function readMoves(reader, animKeysArray = []) {
     }
     return integers;
   };
+
   const readDecodedValue = (offset, idx) => {
+    if (IS_CNT) {
+      return reader.readUInt32(offset);
+    }
     const integers = readArray(offset, KEYS.length);
     for (let i = 0; i < KEYS.length; i++) {
       integers[i] = (integers[i] ^ KEYS[i]) >>> 0;
@@ -286,57 +381,31 @@ function readMoves(reader, animKeysArray = []) {
     return integers[idx % KEYS.length];
   };
 
-  // console.log(aliases);
-
   // Dictionary
   const namesDict = buildDict();
-  // print(namesDict)
-  // return;
 
   // Reading Moves Array
-  const readMoveNameOffset = (addr) => Number(reader.readInt(addr + 0x40, 8));
-  const readAnimNameOffset = (addr) => Number(reader.readInt(addr + 0x48, 8));
-
-  // const readMoveNameOffset = (addr) => Number(reader.readInt(addr + 0x08, 8));
-  // const readAnimNameOffset = (addr) => Number(reader.readInt(addr + 0x10, 8));
-
-  // const getStart = (offset) => Number(reader.readUInt64(offset) - parentAddr)
-  // const getCount = (offset) => reader.readUInt32(offset)
-
-  // const start = getStart(0x230)
-  // const count = getCount(0x238)
+  const readMoveNameOffset = (addr) => Number(reader.readInt(addr + getOffset("MOVE.NAME"), 8));
+  const readAnimNameOffset = (addr) => Number(reader.readInt(addr + getOffset("MOVE.ANIM_NAME"), 8));
 
   const getStart = (offset) => reader.readUInt32(offset);
   const getCount = (offset) => reader.readUInt32(offset);
 
-  const start = getStart(0x230) + 0x318;
-  const count = getCount(0x238);
+  const start = getStart(getOffset("LIST.MOVES_START")) + getOffset("BASE");
+  const count = getCount(getOffset("LIST.MOVES_COUNT"));
   print("Moves Count:", count);
-  const MOVE_SIZE = 0x448;
+  const MOVE_SIZE = getSize("MOVE.BASE");
   // const MOVE_SIZE = 0x3a0; // For v1.00
-  const OFFSET_NAME_KEY = 0x00;
-  const OFFSET_ANIM_NAME_KEY = 0x20;
-  const OFFSET_ANIM_KEY = 0x50;
-  const OFFSET_HURT_BOX = 0x58;
-  const OFFSET_HITLEVEL = 0x78;
-  const OFFSET_ORDINAL1 = 0xd0;
-  const OFFSET_ORDINAL2 = 0xf0;
+  const OFFSET_NAME_KEY = getOffset("MOVE.NAME_KEY");
+  const OFFSET_ANIM_NAME_KEY = getOffset("MOVE.ANIM_NAME_KEY");
+  const OFFSET_ANIM_KEY = getOffset("MOVE.ANIM_KEY");
+  const OFFSET_HURT_BOX = getOffset("MOVE.HURT_BOX");
+  const OFFSET_HITLEVEL = getOffset("MOVE.HITLEVEL");
+  const OFFSET_ORDINAL1 = getOffset("MOVE.ORDINAL1");
+  const OFFSET_ORDINAL2 = getOffset("MOVE.ORDINAL2");
 
   for (let i = 0; i < count; i++) {
     const addr = start + i * MOVE_SIZE;
-
-    // Readings for V1.00
-    // const nameKey = reader.readUInt32(addr + 0x0);
-    // const animNameKey = reader.readUInt32(addr + 0x4);
-    // const hitlevel = reader.readUInt32(addr + 0x20);
-    // const ordinal1 = 0;
-    // const ordinal2 = 0;
-    // const cancelFrame = 0;
-
-    // const nameKey = decrypt(reader.read(tk_encrypted, addr))
-    // const animNameKey = decrypt(reader.read(tk_encrypted, addr + 0x20))
-    // const animKey = reader.readInt(addr + 0x50);
-    // const bytes = Array(8).fill(0).map((_, i) => reader.readUInt32(addr + i * 4));
 
     // TRYING TO DECRYPT THE MOVE NAME FIELD FROM RAW BYTE FILE
     const bytes = reader.readArrayOfBytes(MOVE_SIZE, addr);
@@ -347,7 +416,7 @@ function readMoves(reader, animKeysArray = []) {
     const vuln = readDecodedValue(addr + OFFSET_HURT_BOX, i);
     const ordinal1 = readDecodedValue(addr + OFFSET_ORDINAL1, i);
     const ordinal2 = readDecodedValue(addr + OFFSET_ORDINAL2, i);
-    const voiceclip = Number(reader.readInt64(addr + 0x130));
+    const voiceclip = Number(reader.readInt64(addr + getOffset("MOVE.VOICECLIP")));
 
     const offset1 = readMoveNameOffset(addr);
     const offset2 = readAnimNameOffset(addr);
@@ -362,9 +431,6 @@ function readMoves(reader, animKeysArray = []) {
     }
     const nameLength = offset2 - offset1 - 1;
     animLength--;
-
-    // hashesDict[nameKey] ??= { count: 0, length: nameLength };
-    // hashesDict[nameKey].count++;
 
     const status = moveIsAnAttack(reader, addr, i);
     const aliasId = getAliasId(i);
@@ -411,7 +477,7 @@ function readAnims(file) {
 }
 
 const tk_charId = (c) => ({
-  value: (c.readInt32(0x160) - 1) / 0xffff,
+  value: (c.readInt32(getOffset("CHARID")) - 1) / 0xffff,
   size: 4,
 });
 
@@ -435,8 +501,6 @@ function main() {
 
   console.log("FOLDER:", folder);
 
-  // files.sort((a, b) => getIdFromName(a) - getIdFromName(b));
-
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     if (file === "ja4.motbin") continue;
@@ -448,13 +512,11 @@ function main() {
     const animFile = `${folder}/${base}.anmbin`;
     const outputFile = `${outputFolder}/${base}.txt`;
 
-    // if (file !== "grl.motbin") return;
     const buffer = fs.readFileSync(`${folder}/${file}`);
     const reader = new BinaryFileReader(buffer.buffer);
     const charId = reader.read(tk_charId);
     const someHash = reader.readUInt32(0x4);
-    // console.log(charId)
-    // if (charId !== 28) return;
+
     REACTIONS_DICT = buildReactionsDictionary(reader);
     FORCED_DICT = buildForcedMovesDictionary(reader);
 
@@ -477,7 +539,7 @@ function main() {
 
     const animKeysArray = readAnims(animFile);
     // const animKeysArray = [];
-    readMoves(reader, animKeysArray);
+    readMoves(reader, charId, animKeysArray);
 
     // Cleanup and restore
     outStream.end();
