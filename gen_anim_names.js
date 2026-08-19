@@ -92,6 +92,10 @@ const tk_charId = (c) => ({
       addToDict(code + gen + "_ra_pre_story");
       addToDict(code + gen + "_ra_finish_story_f");
       addToDict(code + gen + "_ra_finish_story_y");
+      addToDict(code + gen + "_ro_co_00");
+      addToDict(code + gen + "_ro_zf_00");
+      addToDict(code + gen + "_ro_fz_00");
+      addToDict(code + gen + "_ro_ff_00");
 
       addToDict(code + gen + "_at_drive");
       addToDict(code + gen + "_at_zd");
@@ -101,6 +105,9 @@ const tk_charId = (c) => ({
       addToDict(code + gen + "_th_zd_y");
       addToDict(code + gen + "_th_zd_hit_f");
       addToDict(code + gen + "_th_zd_hit_y");
+      addToDict(code + gen + "_at_hb");
+      addToDict(code + gen + "_at_hb_can");
+      addToDict(code + gen + "_co_hb_cancel");
       addToDict(code + gen + "_at_hs");
       addToDict(code + gen + "_at_hs_gd");
       addToDict(code + gen + "_at_hs_miss");
@@ -143,12 +150,18 @@ const tk_charId = (c) => ({
       addToDict(code + gen + "_at_sywp");
       addToDict(code + gen + "_at_sywk");
 
-      const inputs = ["lp", "rp", "lk", "rk", "wp", "wk"];
-      const depth = 2;
+      addToDict(code + gen + "_at_d1_3rp");
+      addToDict(code + gen + "_at_d1_3lp");
+      addToDict(code + gen + "_at_d1_3lk");
+      addToDict(code + gen + "_at_d1_3rk");
+
+      const inputs = ["lp", "rp", "lk", "rk", "wp", "wk", "1", "2", "3", "4", "6", "7", "8", "9"];
+      const depth = 3;
       // Recursively generate all possible input combos of specified depth, using self, and store hashes.
       function generateAndStoreCombinations(prefix, combo = "", d = 0) {
         if (d === depth) {
-          const animName = code + gen + "_at_" + combo;
+          // const animName = code + gen + "_at_" + combo + "_po3";
+          const animName = code + gen + "_at_" + combo + "";
           addToDict(animName);
           return;
         }
