@@ -184,6 +184,7 @@ const CODE_MAPPING = {
   test: 128,
   tgr: 38,
   ttr: 24,
+  usi: 42,
   wlf: 22,
   wkz: 40,
   xxa: 117,
